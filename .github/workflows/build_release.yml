@@ -121,7 +121,8 @@ jobs:
       - name: Install and run HEMTT
         run: |
           # Download and install HEMTT
-          wget -q https://github.com/BrettMayson/HEMTT/releases/latest/download/hemtt_linux -O /usr/local/bin/hemtt
+          wget -q -O /tmp/hemtt.tar.gz https://github.com/BrettMayson/HEMTT/releases/latest/download/linux-x64.tar.gz
+          tar -xzf /tmp/hemtt.tar.gz -C /usr/local/bin/
           chmod +x /usr/local/bin/hemtt
           hemtt release
         
