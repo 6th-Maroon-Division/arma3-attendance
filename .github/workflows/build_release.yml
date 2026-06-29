@@ -15,160 +15,76 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  BUILD_TYPE: Release
-  MOD_NAME: attendance_bot
-  PBO_NAME: attendance_bot
-
 jobs:
-  build-linux-64:
-    name: Build Linux 64-bit
+  build:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         
-      - name: Install dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
             cmake \
             libcurl4-openssl-dev
-            
-      - name: Build extension
-        run: |
-          mkdir -p build64
-          cd build64
-          cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ..
-          cmake --build . --config ${{ env.BUILD_TYPE }}
-          cd ..
-          
-      - name: Find and rename output (64-bit)
-        run: |
-          if [ -f "build64/attendance_bot.so" ]; then
-            mv build64/attendance_bot.so build64/${{ env.MOD_NAME }}_64.so
-          elif [ -f "build64/libattendance_bot.so" ]; then
-            mv build64/libattendance_bot.so build64/${{ env.MOD_NAME }}_64.so
-          else
-            echo "ERROR: Could not find .so file in build64/"
-            ls -la build64/ || true
-            exit 1
-          fi
-          
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: attendance-bot-linux-64
-          path: build64/${{ env.MOD_NAME }}_64.so
-          retention-days: 7
-
-  build-linux-32:
-    name: Build Linux 32-bit
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        
-      - name: Install 32-bit dependencies
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
             gcc-multilib \
             g++-multilib \
             libcurl4-openssl-dev:i386
-            
-      - name: Build extension (32-bit)
+        
+      - name: Build 64-bit extension
         run: |
-          mkdir -p build32
-          cd build32
-          cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_C_FLAGS="-m32" \
-            -DCMAKE_CXX_FLAGS="-m32" \
-            ..
-          cmake --build . --config ${{ env.BUILD_TYPE }}
+          mkdir -p build64
+          cd build64
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+          cmake --build . --config Release
           cd ..
-          
-      - name: Find and rename output (32-bit)
-        run: |
-          if [ -f "build32/attendance_bot.so" ]; then
-            mv build32/attendance_bot.so build32/${{ env.MOD_NAME }}_32.so
-          elif [ -f "build32/libattendance_bot.so" ]; then
-            mv build32/libattendance_bot.so build32/${{ env.MOD_NAME }}_32.so
+          if [ -f "build64/attendance_bot.so" ]; then
+            cp build64/attendance_bot.so @attendance_bot/attendance_bot_64.so
+          elif [ -f "build64/libattendance_bot.so" ]; then
+            cp build64/libattendance_bot.so @attendance_bot/attendance_bot_64.so
           else
-            echo "ERROR: Could not find .so file in build32/"
-            ls -la build32/ || true
+            echo "ERROR: 64-bit .so not found"
+            ls -la build64/
             exit 1
           fi
           
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: attendance-bot-linux-32
-          path: build32/${{ env.MOD_NAME }}_32.so
-          retention-days: 7
-
-  package:
-    name: Package Mod
-    needs: [build-linux-64, build-linux-32]
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Build 32-bit extension
+        run: |
+          mkdir -p build32
+          cd build32
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-m32" -DCMAKE_CXX_FLAGS="-m32" ..
+          cmake --build . --config Release
+          cd ..
+          if [ -f "build32/attendance_bot.so" ]; then
+            cp build32/attendance_bot.so @attendance_bot/attendance_bot_32.so
+          elif [ -f "build32/libattendance_bot.so" ]; then
+            cp build32/libattendance_bot.so @attendance_bot/attendance_bot_32.so
+          else
+            echo "ERROR: 32-bit .so not found"
+            ls -la build32/
+            exit 1
+          fi
+          
+      - name: Create symlink
+        run: ln -sf attendance_bot_64.so @attendance_bot/attendance_bot.so
         
       - name: Setup HEMTT
         uses: arma-actions/hemtt@v1
         
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          
-      - name: Prepare mod folder for HEMTT
-        run: |
-          mkdir -p ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/scripts
-          
-          if [ -f "artifacts/attendance-bot-linux-64/${{ env.MOD_NAME }}_64.so" ]; then
-            cp artifacts/attendance-bot-linux-64/${{ env.MOD_NAME }}_64.so ${{ env.MOD_NAME }}/attendance_bot_64.so
-          else
-            echo "ERROR: 64-bit extension not found"
-            ls -la artifacts/attendance-bot-linux-64/ || true
-            exit 1
-          fi
-          
-          if [ -f "artifacts/attendance-bot-linux-32/${{ env.MOD_NAME }}_32.so" ]; then
-            cp artifacts/attendance-bot-linux-32/${{ env.MOD_NAME }}_32.so ${{ env.MOD_NAME }}/attendance_bot_32.so
-          else
-            echo "WARNING: 32-bit extension not available"
-          fi
-          
-          cp @attendance_bot/addons/attendance_bot/config.cpp ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/
-          cp @attendance_bot/addons/attendance_bot/scripts/init.sqf ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/scripts/
-          
-          cp @attendance_bot/mod.cpp ${{ env.MOD_NAME }}/mod.cpp
-          cp @attendance_bot/logo.paa ${{ env.MOD_NAME }}/logo.paa
-          
-          cp tools/config.hpp.example ${{ env.MOD_NAME }}/config.hpp.example
-          cp tools/config.json.example ${{ env.MOD_NAME }}/config.json.example
-          
-          mkdir -p ${{ env.MOD_NAME }}/keys
-          cp @attendance_bot/keys/readme.txt ${{ env.MOD_NAME }}/keys/
-          
-      - name: Create default symlink
-        run: ln -sf attendance_bot_64.so ${{ env.MOD_NAME }}/attendance_bot.so
-          
       - name: Run HEMTT build
         run: hemtt release
-          
-      - name: Rename build folder
-        run: mv .hemttout/release .hemttout/@attendance_bot
-          
+        
+      - name: Rename output to match expected folder
+        run: |
+          mkdir -p .hemttout
+          if [ -d "release/@attendance_bot" ]; then
+            mv release/@attendance_bot .hemttout/@attendance_bot
+          elif [ -d "release" ]; then
+            mv release .hemttout/@attendance_bot
+          fi
+        
       - name: Upload Release
         uses: actions/upload-artifact@v4
         with:
