@@ -41,9 +41,9 @@ jobs:
           cmake --build . --config Release
           cd ..
           if [ -f "build64/attendance_bot.so" ]; then
-            cp build64/attendance_bot.so @attendance_bot/attendance_bot_64.so
+            cp build64/attendance_bot.so @attendance_bot/attendance_bot_x64.so
           elif [ -f "build64/libattendance_bot.so" ]; then
-            cp build64/libattendance_bot.so @attendance_bot/attendance_bot_64.so
+            cp build64/libattendance_bot.so @attendance_bot/attendance_bot_x64.so
           else
             echo "ERROR: 64-bit .so not found"
             ls -la build64/
@@ -58,18 +58,15 @@ jobs:
           cmake --build . --config Release
           cd ..
           if [ -f "build32/attendance_bot.so" ]; then
-            cp build32/attendance_bot.so @attendance_bot/attendance_bot_32.so
+            cp build32/attendance_bot.so @attendance_bot/attendance_bot.so
           elif [ -f "build32/libattendance_bot.so" ]; then
-            cp build32/libattendance_bot.so @attendance_bot/attendance_bot_32.so
+            cp build32/libattendance_bot.so @attendance_bot/attendance_bot.so
           else
             echo "ERROR: 32-bit .so not found"
             ls -la build32/
             exit 1
           fi
           
-      - name: Create symlink
-        run: ln -sf attendance_bot_64.so @attendance_bot/attendance_bot.so
-        
       - name: Setup HEMTT
         uses: arma-actions/hemtt@v1
         
