@@ -1,6 +1,7 @@
 #include "extension.h"
 #include "httprequest.h"
 #include "config.h"
+#include "configfile.h"
 #include "utils.h"
 #include "queue.h"
 
@@ -25,9 +26,8 @@ static std::shared_ptr<EventProcessor> g_EventProcessor = nullptr;
 
 static void EnsureInfrastructure() {
     if (!g_HttpRequest) {
-        // Try to load config from environment variables first
-        // This is how GitHub secrets will be injected
-        g_Config.LoadFromEnvironment();
+        // Try to load config from file first, then environment variables
+        g_Config.Load();
         
         // If endpoint is still empty, use default
         if (g_Config.GetEndpoint().empty()) {
@@ -55,6 +55,21 @@ static void ShutdownInfrastructure() {
         g_EventQueue.reset();
     }
     g_HttpRequest.reset();
+}
+
+static void ReloadConfig() {
+    if (g_EventProcessor) {
+        g_EventProcessor->Stop();
+    }
+    g_Config.Load();
+    g_HttpRequest = std::make_shared<HttpRequest>(
+        g_Config.GetApiToken(),
+        g_Config.GetEndpoint()
+    );
+    if (g_EventQueue) {
+        g_EventProcessor = std::make_shared<EventProcessor>(g_EventQueue, g_HttpRequest);
+        g_EventProcessor->Start();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -154,10 +169,7 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     else if (command == "setToken") {
         if (parts.size() >= 2) {
             g_Config.SetApiToken(parts[1]);
-            g_HttpRequest = std::make_shared<HttpRequest>(
-                g_Config.GetApiToken(),
-                g_Config.GetEndpoint()
-            );
+            ReloadConfig();
             strncpy(output, "OK", outputSize);
         } else {
             strncpy(output, "Error: setToken requires token", outputSize);
@@ -166,13 +178,18 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     else if (command == "setEndpoint") {
         if (parts.size() >= 2) {
             g_Config.SetEndpoint(parts[1]);
-            g_HttpRequest = std::make_shared<HttpRequest>(
-                g_Config.GetApiToken(),
-                g_Config.GetEndpoint()
-            );
+            ReloadConfig();
             strncpy(output, "OK", outputSize);
         } else {
             strncpy(output, "Error: setEndpoint requires URL", outputSize);
+        }
+    }
+    else if (command == "reloadConfig") {
+        if (g_Config.Load()) {
+            ReloadConfig();
+            strncpy(output, "OK - Config reloaded", outputSize);
+        } else {
+            strncpy(output, "Error: Could not reload config", outputSize);
         }
     }
     else if (command == "queueStatus") {

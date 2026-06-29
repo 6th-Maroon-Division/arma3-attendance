@@ -12,8 +12,11 @@ public:
     void SetApiToken(const std::string& token);
     void SetEndpoint(const std::string& endpoint);
     
+    // Load configuration from all sources (file > env vars)
+    bool Load();
+    
+    // Load from environment variables only
     bool LoadFromEnvironment();
-    bool LoadFromFile(const std::string& path);
     
 private:
     std::string apiToken_;

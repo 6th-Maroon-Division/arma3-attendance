@@ -21,6 +21,7 @@ set(SOURCES
     src/extension.cpp
     src/httprequest.cpp
     src/config.cpp
+    src/configfile.cpp
     src/utils.cpp
     src/queue.cpp
 )

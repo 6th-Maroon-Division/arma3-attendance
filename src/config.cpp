@@ -1,8 +1,7 @@
 #include "config.h"
+#include "configfile.h"
 
 #include <cstdlib> // for getenv
-#include <fstream>
-#include <sstream>
 
 Config::Config() : apiToken_(""), endpoint_("") {}
 
@@ -24,7 +23,6 @@ void Config::SetEndpoint(const std::string& endpoint) {
 
 bool Config::LoadFromEnvironment() {
     // Try to load from environment variables
-    // These will be set by GitHub Actions secrets
     const char* tokenEnv = std::getenv("BOT_API_TOKEN");
     const char* endpointEnv = std::getenv("BOT_API_ENDPOINT");
     
@@ -40,27 +38,15 @@ bool Config::LoadFromEnvironment() {
     return !apiToken_.empty();
 }
 
-bool Config::LoadFromFile(const std::string& path) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        return false;
+bool Config::Load() {
+    // Try config file first
+    std::string fileToken, fileEndpoint;
+    if (ConfigFile::TryLoadConfig(fileToken, fileEndpoint)) {
+        apiToken_ = fileToken;
+        endpoint_ = fileEndpoint;
+        return !apiToken_.empty();
     }
     
-    std::string line;
-    while (std::getline(file, line)) {
-        // Simple key=value format
-        size_t delimiterPos = line.find('=');
-        if (delimiterPos != std::string::npos) {
-            std::string key = line.substr(0, delimiterPos);
-            std::string value = line.substr(delimiterPos + 1);
-            
-            if (key == "apiToken") {
-                apiToken_ = value;
-            } else if (key == "endpoint") {
-                endpoint_ = value;
-            }
-        }
-    }
-    
-    return !apiToken_.empty();
+    // Fall back to environment variables
+    return LoadFromEnvironment();
 }

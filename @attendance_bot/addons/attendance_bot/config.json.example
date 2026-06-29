@@ -1,0 +1,14 @@
+{
+    "apiToken": "your_bot_api_token_here",
+    "endpoint": "https://your-bot-api.com/api/bot/events"
+}
+
+// Alternatively, you can use:
+// {
+//     "token": "your_bot_api_token_here",
+//     "url": "https://your-bot-api.com/api/bot/events"
+// }
+
+// JSON format is also supported.
+// After changing, use: callExtension "reloadConfig"
+// Or restart the server.
