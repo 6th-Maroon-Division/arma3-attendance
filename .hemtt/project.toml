@@ -1,5 +1,10 @@
 name = "Attendance Bot"
+author = "6th Maroon Division"
 prefix = "attendance_bot"
 mainprefix = "z"
-author = "6th Maroon Division"
-version = "1.0.0"
+
+[hemtt.release]
+archive = false
+no_bin = true
+no_wiki = true
+no_rap = true
