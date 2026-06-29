@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
         
       - name: Install dependencies
         run: |
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
         
       - name: Install 32-bit dependencies
         run: |
@@ -116,13 +116,21 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
         
       - name: Setup HEMTT
         uses: arma-actions/hemtt@v1
         
+      - name: Verify HEMTT
+        run: |
+          which hemtt || echo "HEMTT not in PATH"
+          ls -la /usr/local/bin/ | grep -i hemtt || true
+          export PATH=$PATH:/usr/local/bin
+        
       - name: Run HEMTT build
-        run: hemtt release
+        run: |
+          export PATH=$PATH:/usr/local/bin
+          hemtt release
         
       - name: Move HEMTT output
         run: |
@@ -147,7 +155,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
         
       - name: Download all artifacts
         uses: actions/download-artifact@v4
