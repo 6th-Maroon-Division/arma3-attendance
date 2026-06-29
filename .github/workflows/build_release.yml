@@ -118,11 +118,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         
-      - name: Setup HEMTT
-        uses: arma-actions/hemtt@v1
-        
-      - name: Run HEMTT build
-        run: hemtt release
+      - name: Install and run HEMTT
+        run: |
+          # Download and install HEMTT
+          wget -q https://github.com/BrettMayson/HEMTT/releases/latest/download/hemtt_linux -O /usr/local/bin/hemtt
+          chmod +x /usr/local/bin/hemtt
+          hemtt release
         
       - name: Move HEMTT output
         run: |
