@@ -60,16 +60,10 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
-            - name: Setup Mikero Tools (binarize)
+            - name: Setup Mikero Tools (makepbo)
               uses: arma-actions/mikero-tools@latest
-            - name: Prepare mod folder
-              run: |
-                mkdir -p @attendance_bot/addons/attendance_bot/scripts
             - name: Pack PBO
-              run: |
-                cd @attendance_bot/addons
-                binarize -pack attendance_bot.pbo attendance_bot/
-                cd ../..
+              run: makepbo -P attendance_bot @attendance_bot/addons/attendance_bot @attendance_bot/addons/attendance_bot.pbo
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
