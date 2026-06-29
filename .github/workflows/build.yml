@@ -3,23 +3,16 @@ name: Build
 on: [push]
 
 jobs:
-    build:
+    build-64:
+        name: Build 64-bit
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
-              
-            - name: Install build dependencies
+            - name: Install dependencies
               run: |
                 sudo apt-get update
-                sudo apt-get install -y \
-                  build-essential \
-                  cmake \
-                  libcurl4-openssl-dev \
-                  gcc-multilib \
-                  g++-multilib \
-                  libcurl4-openssl-dev:i386
-                
-            - name: Build 64-bit extension
+                sudo apt-get install -y build-essential cmake libcurl4-openssl-dev
+            - name: Build extension
               run: |
                 mkdir -p build64
                 cd build64
@@ -27,8 +20,27 @@ jobs:
                 cmake --build . --config Release
                 cd ..
                 cp build64/attendance_bot* @attendance_bot/attendance_bot_x64.so
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: ext-64
+                path: @attendance_bot/attendance_bot_x64.so
+                retention-days: 1
                 
-            - name: Build 32-bit extension
+    build-32:
+        name: Build 32-bit
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install 32-bit dependencies
+              run: |
+                sudo dpkg --add-architecture i386
+                sudo apt-get update
+                sudo apt-get install -y \
+                  build-essential cmake \
+                  gcc-multilib g++-multilib \
+                  libcurl4-openssl-dev:i386
+            - name: Build extension
               run: |
                 mkdir -p build32
                 cd build32
@@ -36,20 +48,60 @@ jobs:
                 cmake --build . --config Release
                 cd ..
                 cp build32/attendance_bot* @attendance_bot/attendance_bot.so
-                
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: ext-32
+                path: @attendance_bot/attendance_bot.so
+                retention-days: 1
+
+    build-pbo:
+        name: Build PBO
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
             - name: Setup HEMTT
               uses: arma-actions/hemtt@v1
-              
             - name: Run HEMTT build
               run: hemtt release
-              
-            - name: Rename build folder
-              run: mv .hemttout/release .hemttout/@attendance_bot
-              
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: pbo
+                path: .hemttout/release/
+                retention-days: 1
+
+    package:
+        name: Package
+        needs: [build-64, build-32, build-pbo]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Download artifacts
+              uses: actions/download-artifact@v4
+              with:
+                path: artifacts
+            - name: Get version
+              id: version
+              run: |
+                if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+                  VERSION=${GITHUB_REF#refs/tags/v}
+                else
+                  VERSION="1.0.0"
+                fi
+                echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            - name: Create release structure
+              run: |
+                mkdir -p release/@attendance_bot
+                cp artifacts/ext-64/attendance_bot_x64.so release/@attendance_bot/
+                cp artifacts/ext-32/attendance_bot.so release/@attendance_bot/
+                cp -r artifacts/pbo/* release/@attendance_bot/ || true
+                cp tools/config.hpp.example release/@attendance_bot/
+                cp tools/config.json.example release/@attendance_bot/
             - name: Upload Release
               uses: actions/upload-artifact@v4
               with:
-                  name: attendance_bot
-                  path: .hemttout/@attendance_bot
-                  include-hidden-files: true
-                  if-no-files-found: error
+                name: attendance_bot
+                path: release/
+                include-hidden-files: true
+                if-no-files-found: error
