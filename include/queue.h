@@ -8,6 +8,9 @@
 #include <atomic>
 #include <memory>
 
+// Forward declarations
+class HttpRequest;
+
 // Event data structure - Steam ID only
 struct PlayerEvent {
     std::string steamId;
@@ -39,7 +42,12 @@ public:
     // Check if stopped
     bool IsStopped() const;
     
+    // For EventProcessor: Check if empty and not stopped
+    bool HasWork() const;
+    
 private:
+    friend class EventProcessor;  // Allow EventProcessor to access private members
+    
     std::queue<PlayerEvent> queue_;
     mutable std::mutex mutex_;
     std::condition_variable condVar_;

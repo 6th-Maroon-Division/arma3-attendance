@@ -60,6 +60,11 @@ bool EventQueue::IsStopped() const {
     return stopped_.load();
 }
 
+bool EventQueue::HasWork() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return !queue_.empty() || stopped_.load();
+}
+
 // ============================================================================
 // EventProcessor implementation
 // ============================================================================
@@ -94,21 +99,12 @@ void EventProcessor::ProcessLoop() {
     while (running_.load()) {
         PlayerEvent event;
         
-        {
-            std::unique_lock<std::mutex> lock(queue_->mutex_);
-            if (queue_->condVar_.wait_for(lock, std::chrono::milliseconds(100), 
-                [this] { return !queue_->queue_.empty() || queue_->stopped_.load(); })) {
-                if (!queue_->queue_.empty()) {
-                    event = queue_->queue_.front();
-                    queue_->queue_.pop();
-                } else if (queue_->stopped_.load()) {
-                    break;
-                } else {
-                    continue;
-                }
-            } else {
-                continue;
-            }
+        // Use the public Pop() method which handles waiting
+        event = queue_->Pop();
+        
+        // Check if we should stop
+        if (queue_->IsStopped() && event.steamId.empty()) {
+            break;
         }
         
         if (!event.steamId.empty()) {
