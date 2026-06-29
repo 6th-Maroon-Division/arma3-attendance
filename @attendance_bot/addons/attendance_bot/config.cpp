@@ -1,5 +1,5 @@
 // Arma 3 Extension Configuration
-// This config declares the C++ extension to Arma 3
+// This config declares the C++ extension to Arma 3 and sets up auto-execution
 
 class CfgPatches
 {
@@ -11,25 +11,49 @@ class CfgPatches
         requiredAddons[] = {};
         author = "Your Name";
         name = "Attendance Bot Extension";
+        
+        // Version info
+        version = "1.0.0";
+        versionStr = "1.0.0";
+        versionAr[] = {1,0,0};
     };
 };
 
-// Declare the extension - Arma 3 will look for attendance_bot.so or attendance_bot.dll
-// in the same directory as this config.cpp
+// Declare the C++ extension - Arma 3 will look for attendance_bot.so or attendance_bot.dll
 class CfgExtensions
 {
-    // The name here is used in callExtension commands
-    // The engine looks for a file named after this class
     class attendance_bot
     {
         // This should match the filename of your .so/.dll
         // On Linux: attendance_bot.so
         // On Windows: attendance_bot.dll
         extension = "attendance_bot";
+        
+        // Optional: full path (usually not needed if in same directory as config.cpp)
+        // extension = "\@attendance_bot\addons\attendance_bot\attendance_bot";
     };
 };
 
-// Required for the extension to be loaded as an addon
+// Auto-execute our init script when the mod loads
+// This runs automatically without requiring mission changes
+class CfgFunctions
+{
+    class attendance_bot
+    {
+        class init
+        {
+            // This file will be automatically executed when the mod loads
+            // preInit = 1 means it runs before mission starts
+            file = "\@attendance_bot\addons\attendance_bot\init.sqf";
+            preInit = 1;
+            
+            // Optional: also run during mission (for JIP players)
+            postInit = 1;
+        };
+    };
+};
+
+// Mod metadata
 class CfgMods
 {
     class Mod_Base;
@@ -41,8 +65,8 @@ class CfgMods
         logo = "\@attendance_bot\logo.paa";
         logoOver = "\@attendance_bot\logo.paa";
         logoSmall = "\@attendance_bot\logo.paa";
-        tooltip = "Player join/leave event tracker";
-        tooltipOwned = "Player join/leave event tracker";
+        tooltip = "Automatically tracks player join/leave events";
+        tooltipOwned = "Player join/leave event tracker - no mission changes required";
         author = "Your Name";
         action = "";
         hideName = 0;
