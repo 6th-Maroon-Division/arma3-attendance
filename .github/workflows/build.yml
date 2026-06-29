@@ -61,7 +61,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - name: Setup HEMTT
-              uses: arma-actions/hemtt@v1
+              uses: arma-actions/hemtt@main
             - name: Run HEMTT build
               run: hemtt release
             - name: Upload artifact
