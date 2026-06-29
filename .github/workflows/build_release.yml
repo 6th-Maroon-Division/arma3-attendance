@@ -123,7 +123,7 @@ jobs:
           # Download and install HEMTT (direct binary)
           wget -q -O /usr/local/bin/hemtt https://github.com/BrettMayson/HEMTT/releases/latest/download/linux-x64
           chmod +x /usr/local/bin/hemtt
-          hemtt release
+          hemtt release --ci
         
       - name: Move HEMTT output
         run: |
