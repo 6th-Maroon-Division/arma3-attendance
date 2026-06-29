@@ -71,32 +71,15 @@ namespace Utils {
         return oss.str();
     }
     
-    std::string BuildPlayerEventJson(
-        const std::string& steamId, 
-        const std::string& discordUserId, 
-        bool isJoin
-    ) {
+    std::string BuildPlayerEventJson(const std::string& steamId, bool isJoin) {
         std::string timestamp = GetCurrentUTCTime();
         
-        // Prefer steamId if available, otherwise use discordUserId
-        if (!steamId.empty()) {
-            return "{\"steamId\":\"" + JsonEscape(steamId) + 
-                   "\",\"isJoin\":" + (isJoin ? "true" : "false") +
-                   "\",\"timestamp\":\"" + timestamp + "\"}";
-        } else if (!discordUserId.empty()) {
-            return "{\"discordUserId\":\"" + JsonEscape(discordUserId) + 
-                   "\",\"isJoin\":" + (isJoin ? "true" : "false") +
-                   "\",\"timestamp\":\"" + timestamp + "\"}";
-        }
-        
-        // If neither is available, this is an error case
-        // But we still return valid JSON
-        return "{\"isJoin\":" + (isJoin ? "true" : "false") +
+        return "{\"steamId\":\"" + JsonEscape(steamId) + 
+               "\",\"isJoin\":" + (isJoin ? "true" : "false") +
                "\",\"timestamp\":\"" + timestamp + "\"}";
     }
     
     std::string GetCurrentUTCTime() {
-        // Get current time in UTC
         auto now = std::chrono::system_clock::now();
         auto now_time = std::chrono::system_clock::to_time_t(now);
         
@@ -107,7 +90,6 @@ namespace Utils {
             gmtime_r(&now_time, &tm_utc);
         #endif
         
-        // Format as ISO 8601: YYYY-MM-DDTHH:MM:SSZ
         std::ostringstream oss;
         oss << std::put_time(&tm_utc, "%Y-%m-%dT%H:%M:%SZ");
         

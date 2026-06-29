@@ -12,3 +12,4 @@
 // JSON format is also supported.
 // After changing, use: callExtension "reloadConfig"
 // Or restart the server.
+// Note: Only Steam ID is tracked (via getPlayerUID)

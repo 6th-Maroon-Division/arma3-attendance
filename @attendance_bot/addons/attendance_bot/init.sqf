@@ -37,7 +37,7 @@ attendance_bot_call = {
 };
 
 // ============================================================================
-// Player ID Extraction
+// Player ID Extraction (Steam ID only)
 // ============================================================================
 
 attendance_bot_getSteamID = {
@@ -46,52 +46,33 @@ attendance_bot_getSteamID = {
     if (isNull _player) exitWith { "" };
     _uid = getPlayerUID _player;
     if (_uid == "" || _uid == "0") then {
-        // Try to get from profile
         _uid = profileNameSpace getVariable ["BIS_PlayerID", ""];
     };
     _uid
 };
 
-attendance_bot_getDiscordID = {
-    private ["_player"];
-    _player = _this;
-    if (isNull _player) exitWith { "" };
-    // Try various Discord integration mods
-    private ["_id"];
-    _id = _player getVariable ["discordUserId", ""];
-    if (_id == "") then {
-        _id = _player getVariable ["DISCORD_ID", ""];
-    };
-    if (_id == "") then {
-        _id = profileNamespace getVariable [format ["discord_id_%1", getPlayerUID _player], ""];
-    };
-    _id
-};
-
 // ============================================================================
-// Event Handlers
+// Event Handlers (Steam ID only)
 // ============================================================================
 
 attendance_bot_onPlayerConnected = {
-    private ["_player", "_steamID", "_discordID"];
+    private ["_player", "_steamID"];
     _player = _this select 0;
     
     _steamID = [_player] call attendance_bot_getSteamID;
-    _discordID = [_player] call attendance_bot_getDiscordID;
     
     // Send to extension - returns immediately, queued internally
-    ["playerConnected", _steamID, _discordID] call attendance_bot_call;
+    ["playerConnected", _steamID] call attendance_bot_call;
 };
 
 attendance_bot_onPlayerDisconnected = {
-    private ["_player", "_steamID", "_discordID"];
+    private ["_player", "_steamID"];
     _player = _this select 0;
     
     _steamID = [_player] call attendance_bot_getSteamID;
-    _discordID = [_player] call attendance_bot_getDiscordID;
     
     // Send to extension - returns immediately, queued internally
-    ["playerDisconnected", _steamID, _discordID] call attendance_bot_call;
+    ["playerDisconnected", _steamID] call attendance_bot_call;
 };
 
 // ============================================================================

@@ -13,8 +13,11 @@ public:
     
     HttpRequest(const std::string& apiToken, const std::string& endpoint);
     
-    // Send player join/leave event to the API
-    Response SendPlayerEvent(const std::string& steamId, const std::string& discordUserId, bool isJoin);
+    // Send player join/leave event to the API (Steam ID only)
+    Response SendPlayerEvent(const std::string& steamId, bool isJoin);
+    
+    // Set the endpoint URL
+    void SetEndpoint(const std::string& url);
     
 private:
     std::string apiToken_;

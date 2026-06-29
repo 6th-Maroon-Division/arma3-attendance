@@ -29,7 +29,6 @@ HttpRequest::HttpRequest(const std::string& apiToken, const std::string& endpoin
 
 HttpRequest::Response HttpRequest::SendPlayerEvent(
     const std::string& steamId, 
-    const std::string& discordUserId, 
     bool isJoin
 ) {
     Response response;
@@ -42,7 +41,7 @@ HttpRequest::Response HttpRequest::SendPlayerEvent(
         return response;
     }
     
-    std::string jsonBody = Utils::BuildPlayerEventJson(steamId, discordUserId, isJoin);
+    std::string jsonBody = Utils::BuildPlayerEventJson(steamId, isJoin);
     
     // Build headers
     struct curl_slist* headers = nullptr;
@@ -59,7 +58,7 @@ HttpRequest::Response HttpRequest::SendPlayerEvent(
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L); // 10 second timeout
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     
     // Perform the request

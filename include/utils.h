@@ -15,8 +15,8 @@ namespace Utils {
     // JSON escape utilities
     std::string JsonEscape(const std::string& str);
     
-    // Build JSON string for player event
-    std::string BuildPlayerEventJson(const std::string& steamId, const std::string& discordUserId, bool isJoin);
+    // Build JSON string for player event (Steam ID only)
+    std::string BuildPlayerEventJson(const std::string& steamId, bool isJoin);
     
     // Time utilities - ISO 8601 timestamp
     std::string GetCurrentUTCTime();

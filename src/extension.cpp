@@ -108,7 +108,7 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     }
     
     // Parse the function call
-    // Format: "functionName arg1 arg2 arg3 ..."
+    // Format: "functionName arg1 arg2 ..."
     std::string funcStr(function);
     std::vector<std::string> parts = Utils::SplitString(funcStr, ' ');
     
@@ -124,15 +124,13 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     EnsureInfrastructure();
     
     if (command == "playerConnected") {
-        // Format: playerConnected <steamId> <discordUserId>
+        // Format: playerConnected <steamId>
         if (parts.size() >= 2) {
             std::string steamId = parts[1];
-            std::string discordUserId = (parts.size() >= 3) ? parts[2] : "";
             
             // Queue the event and return immediately
             PlayerEvent event;
             event.steamId = steamId;
-            event.discordUserId = discordUserId;
             event.isJoin = true;
             event.timestamp = Utils::GetCurrentUTCTime();
             
@@ -144,15 +142,13 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
         }
     }
     else if (command == "playerDisconnected") {
-        // Format: playerDisconnected <steamId> <discordUserId>
+        // Format: playerDisconnected <steamId>
         if (parts.size() >= 2) {
             std::string steamId = parts[1];
-            std::string discordUserId = (parts.size() >= 3) ? parts[2] : "";
             
             // Queue the event and return immediately
             PlayerEvent event;
             event.steamId = steamId;
-            event.discordUserId = discordUserId;
             event.isJoin = false;
             event.timestamp = Utils::GetCurrentUTCTime();
             
@@ -194,7 +190,7 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     }
     else if (command == "queueStatus") {
         if (g_EventQueue) {
-            int count = g_EventQueue->Empty() ? 0 : 1; // Simple check
+            int count = g_EventQueue->Empty() ? 0 : 1;
             snprintf(output, outputSize, "Queue: %d events", count);
         } else {
             strncpy(output, "Queue not initialized", outputSize);
@@ -207,7 +203,7 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     output[outputSize - 1] = '\0';
 }
 
-void Arma3Extension::OnPlayerConnected(const std::string& steamId, const std::string& discordUserId) {
+void Arma3Extension::OnPlayerConnected(const std::string& steamId) {
     if (!g_EventQueue) {
         LastError = "Event queue not initialized";
         return;
@@ -215,14 +211,13 @@ void Arma3Extension::OnPlayerConnected(const std::string& steamId, const std::st
     
     PlayerEvent event;
     event.steamId = steamId;
-    event.discordUserId = discordUserId;
     event.isJoin = true;
     event.timestamp = Utils::GetCurrentUTCTime();
     
     g_EventQueue->Push(event);
 }
 
-void Arma3Extension::OnPlayerDisconnected(const std::string& steamId, const std::string& discordUserId) {
+void Arma3Extension::OnPlayerDisconnected(const std::string& steamId) {
     if (!g_EventQueue) {
         LastError = "Event queue not initialized";
         return;
@@ -230,7 +225,6 @@ void Arma3Extension::OnPlayerDisconnected(const std::string& steamId, const std:
     
     PlayerEvent event;
     event.steamId = steamId;
-    event.discordUserId = discordUserId;
     event.isJoin = false;
     event.timestamp = Utils::GetCurrentUTCTime();
     

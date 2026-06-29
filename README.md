@@ -1,10 +1,11 @@
 # Arma 3 Attendance Bot Extension
 
-**A self-contained mod that automatically tracks player join/leave events and sends them to your bot API - NO MISSION CHANGES REQUIRED!**
+**A self-contained mod that automatically tracks player join/leave events using Steam ID and sends them to your bot API - NO MISSION CHANGES REQUIRED!**
 
 ## 🎯 Key Features
 
 ✅ **Self-contained** - No mission changes required  
+✅ **Steam ID tracking** - Uses `getPlayerUID` for player identification  
 ✅ **Config file support** - INI-style or JSON configuration  
 ✅ **Environment variables fallback** - Still supports env vars for compatibility  
 ✅ **Async queue** - Non-blocking HTTP requests  
@@ -184,8 +185,6 @@ You can reload the configuration without restarting the server:
 callExtension "reloadConfig";
 ```
 
-Or edit the config file and the extension will automatically detect changes on next event (depending on implementation).
-
 ## 📁 File Structure
 
 ```
@@ -244,6 +243,10 @@ SQF Handler → callExtension → [Thread-safe Queue] → Worker Thread → HTTP
          ↑                                  ↓
          └────────── "OK" (immediate) ────┘
 ```
+
+### Player ID Extraction:
+
+The mod uses `getPlayerUID` which returns the player's **Steam ID** as a string (e.g., "76561198000000000"). This is the standard 64-bit Steam ID format used by Arma 3.
 
 ## 🧪 Testing
 
@@ -316,6 +319,12 @@ class CfgFunctions
         };
     };
 };
+```
+
+### Player Tracking (init.sqf)
+```sqf
+["PlayerConnected", attendance_bot_onPlayerConnected] call addMissionEventHandler;
+["PlayerDisconnected", attendance_bot_onPlayerDisconnected] call addMissionEventHandler;
 ```
 
 ### Async Queue (C++)

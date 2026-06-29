@@ -8,10 +8,9 @@
 #include <atomic>
 #include <memory>
 
-// Event data structure
+// Event data structure - Steam ID only
 struct PlayerEvent {
     std::string steamId;
-    std::string discordUserId;
     bool isJoin;
     std::string timestamp;
 };

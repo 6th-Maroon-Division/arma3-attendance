@@ -28,8 +28,7 @@ PlayerEvent EventQueue::Pop() {
     });
     
     if (stopped_.load() && queue_.empty()) {
-        // Return a default event if stopped and queue is empty
-        return PlayerEvent{"", "", false, ""};
+        return PlayerEvent{"", false, ""};
     }
     
     PlayerEvent event = queue_.front();
@@ -95,10 +94,8 @@ void EventProcessor::ProcessLoop() {
     while (running_.load()) {
         PlayerEvent event;
         
-        // Try to pop an event with a timeout to allow periodic checks of running_ flag
         {
             std::unique_lock<std::mutex> lock(queue_->mutex_);
-            // Wait for 100ms or until notified
             if (queue_->condVar_.wait_for(lock, std::chrono::milliseconds(100), 
                 [this] { return !queue_->queue_.empty() || queue_->stopped_.load(); })) {
                 if (!queue_->queue_.empty()) {
@@ -107,24 +104,19 @@ void EventProcessor::ProcessLoop() {
                 } else if (queue_->stopped_.load()) {
                     break;
                 } else {
-                    continue; // Timeout, check running_ flag
+                    continue;
                 }
             } else {
-                // Timeout occurred, just continue to check running_
                 continue;
             }
         }
         
-        // Process the event
-        if (!event.steamId.empty() || !event.discordUserId.empty()) {
+        if (!event.steamId.empty()) {
             HttpRequest::Response response = http_->SendPlayerEvent(
                 event.steamId, 
-                event.discordUserId, 
                 event.isJoin
             );
             
-            // Could add retry logic here if needed
-            // For now, just log to stderr
             if (response.statusCode != 200 && response.statusCode != 201) {
                 if (!response.error.empty()) {
                     fprintf(stderr, "Failed to send event: %s\n", response.error.c_str());
