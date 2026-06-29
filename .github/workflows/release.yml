@@ -21,92 +21,131 @@ env:
   PBO_NAME: attendance_bot
 
 jobs:
-  build:
-    name: Build Extensions
+  # ============================================================================
+  # Linux 64-bit build
+  # ============================================================================
+  build-linux-64:
+    name: Build Linux 64-bit
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       
-    - name: Install build dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           build-essential \
           cmake \
-          libcurl4-openssl-dev \
-          gcc-multilib \
-          g++-multilib
-        
-        # Enable multiarch for 32-bit builds
-        sudo dpkg --add-architecture i386
-        sudo apt-get update
-        sudo apt-get install -y \
-          libcurl4-openssl-dev:i386 \
-          gcc-i686-linux-gnu \
-          g++-i686-linux-gnu
+          libcurl4-openssl-dev
           
-    - name: Build 64-bit extension
+    - name: Build extension
       run: |
-        mkdir -p build64
-        cd build64
+        mkdir -p build
+        cd build
         cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ..
         cmake --build . --config ${{ env.BUILD_TYPE }} --target ${{ env.MOD_NAME }}
         cd ..
         
-    - name: Build 32-bit extension
+    - name: Rename output
       run: |
-        mkdir -p build32
-        cd build32
+        mv build/${{ env.MOD_NAME }}.so build/${{ env.MOD_NAME }}_64.so
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: attendance-bot-linux-64
+        path: build/${{ env.MOD_NAME }}_64.so
+        retention-days: 7
+
+  # ============================================================================
+  # Linux 32-bit build
+  # ============================================================================
+  build-linux-32:
+    name: Build Linux 32-bit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install 32-bit dependencies
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          gcc-multilib \
+          g++-multilib \
+          libcurl4-openssl-dev:i386
+          
+    - name: Build extension (32-bit)
+      run: |
+        mkdir -p build
+        cd build
         cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          -DCMAKE_C_COMPILER=i686-linux-gnu-gcc \
-          -DCMAKE_CXX_COMPILER=i686-linux-gnu-g++ \
           -DCMAKE_C_FLAGS="-m32" \
           -DCMAKE_CXX_FLAGS="-m32" \
           ..
         cmake --build . --config ${{ env.BUILD_TYPE }} --target ${{ env.MOD_NAME }}
         cd ..
         
-    - name: Prepare mod structure
+    - name: Rename output
       run: |
-        # Create mod directory structure
-        mkdir -p ${{ env.MOD_NAME }}/addons
+        mv build/${{ env.MOD_NAME }}.so build/${{ env.MOD_NAME }}_32.so
         
-        # Copy extension files to mod root
-        cp build64/${{ env.MOD_NAME }}.so ${{ env.MOD_NAME }}/attendance_bot_64.so
-        cp build32/${{ env.MOD_NAME }}.so ${{ env.MOD_NAME }}/attendance_bot_32.so
-        
-        # Create PBO source directory
-        mkdir -p ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/scripts
-        cp @attendance_bot/addons/attendance_bot/config.cpp ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/
-        cp @attendance_bot/addons/attendance_bot/scripts/init.sqf ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/scripts/
-        
-        # Copy mod.cpp and logo
-        cp @attendance_bot/mod.cpp ${{ env.MOD_NAME }}/mod.cpp
-        cp @attendance_bot/logo.paa ${{ env.MOD_NAME }}/logo.paa
-        
-        # Copy config examples
-        cp tools/config.hpp.example ${{ env.MOD_NAME }}/config.hpp.example
-        cp tools/config.json.example ${{ env.MOD_NAME }}/config.json.example
-        
-        # Copy keys folder
-        mkdir -p ${{ env.MOD_NAME }}/keys
-        cp @attendance_bot/keys/readme.txt ${{ env.MOD_NAME }}/keys/
-        
-    - name: Upload build artifacts
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: attendance-bot-build
-        path: |
-          ${{ env.MOD_NAME }}/
-          build64/
-          build32/
+        name: attendance-bot-linux-32
+        path: build/${{ env.MOD_NAME }}_32.so
         retention-days: 7
 
+  # ============================================================================
+  # Windows build (optional - comment out if not needed)
+  # ============================================================================
+  # build-windows:
+  #   name: Build Windows
+  #   runs-on: windows-latest
+  #   
+  #   steps:
+  #   - name: Checkout repository
+  #     uses: actions/checkout@v4
+  #     
+  #   - name: Install dependencies
+  #     run: |
+  #       vcpkg install curl:x64-windows
+  #       
+  #   - name: Configure CMake
+  #     run: |
+  #       mkdir build
+  #       cd build
+  #       cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+  #       
+  #   - name: Build extension
+  #     run: |
+  #       cd build
+  #       cmake --build . --config ${{ env.BUILD_TYPE }} --target ${{ env.MOD_NAME }}
+  #       
+  #   - name: Rename output
+  #     run: |
+  #       mv build/${{ env.BUILD_TYPE }}/${{ env.MOD_NAME }}.dll ${{ env.MOD_NAME }}.dll
+  #       
+  #   - name: Upload artifact
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: attendance-bot-windows
+  #       path: ${{ env.MOD_NAME }}.dll
+  #       retention-days: 7
+
+  # ============================================================================
+  # Release packaging
+  # ============================================================================
   release:
-    name: Create GitHub Release
-    needs: build
+    name: Package and Publish
+    needs: [build-linux-64, build-linux-32]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
     
@@ -114,11 +153,13 @@ jobs:
       contents: write
       
     steps:
-    - name: Download build artifacts
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
-        name: attendance-bot-build
-        path: ./
+        path: artifacts
         
     - name: Get version
       id: version
@@ -130,55 +171,77 @@ jobs:
         fi
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         
-    - name: Create PBO (using Eliteness repo PBO tool)
+    - name: Prepare mod structure
       run: |
-        # Install PBO packing tool
+        # Create mod directory
+        mkdir -p ${{ env.MOD_NAME }}/addons
+        
+        # Copy 64-bit extension
+        cp artifacts/attendance-bot-linux-64/${{ env.MOD_NAME }}_64.so ${{ env.MOD_NAME }}/attendance_bot_64.so
+        
+        # Copy 32-bit extension if available
+        if [ -f "artifacts/attendance-bot-linux-32/${{ env.MOD_NAME }}_32.so" ]; then
+          cp artifacts/attendance-bot-linux-32/${{ env.MOD_NAME }}_32.so ${{ env.MOD_NAME }}/attendance_bot_32.so
+        else
+          echo "32-bit extension not available"
+        fi
+        
+        # Copy PBO source files
+        mkdir -p ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/scripts
+        cp @attendance_bot/addons/attendance_bot/config.cpp ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/
+        cp @attendance_bot/addons/attendance_bot/scripts/init.sqf ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/scripts/
+        
+        # Copy mod metadata
+        cp @attendance_bot/mod.cpp ${{ env.MOD_NAME }}/mod.cpp
+        cp @attendance_bot/logo.paa ${{ env.MOD_NAME }}/logo.paa
+        
+        # Copy config examples
+        cp tools/config.hpp.example ${{ env.MOD_NAME }}/config.hpp.example
+        cp tools/config.json.example ${{ env.MOD_NAME }}/config.json.example
+        
+        # Copy keys folder
+        mkdir -p ${{ env.MOD_NAME }}/keys
+        cp @attendance_bot/keys/readme.txt ${{ env.MOD_NAME }}/keys/
+        
+    - name: Install rapid-pbo for PBO packing
+      run: |
         git clone https://github.com/ArmaLife/rapid-pbo.git /tmp/rapid-pbo
         cd /tmp/rapid-pbo
         make
         sudo make install
         cd $GITHUB_WORKSPACE
         
-        # Pack PBO
+    - name: Pack PBO
+      run: |
         cd ${{ env.MOD_NAME }}/addons
         rapid-pbo pack ${{ env.PBO_NAME }}.pbo ${{ env.PBO_NAME }}
         cd ../..
         
-        # Verify PBO was created
+        # Clean up source folder
         if [ -f "${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}.pbo" ]; then
-          echo "PBO created successfully"
-          # Remove the source folder, keep only PBO
           rm -rf "${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}"
-        else
-          echo "WARNING: PBO creation may have failed, trying fallback..."
-          # Fallback: just copy the source as-is (users can pack manually)
-          mv ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }} ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}_src
         fi
         
-    - name: Create default extension symlink
+    - name: Create default symlink
       run: |
-        # Create default symlink for 64-bit (most common)
-        ln -sf attendance_bot_64.so ${{ env.MOD_NAME }}/attendance_bot.so 2>/dev/null || true
+        ln -sf attendance_bot_64.so ${{ env.MOD_NAME }}/attendance_bot.so
         
     - name: Create release ZIP
       run: |
-        # Create a clean release directory
         mkdir -p release-package
         cp -r ${{ env.MOD_NAME }} release-package/
-        
-        # Create ZIP
         cd release-package
         zip -r9 ../attendance_bot-v${{ steps.version.outputs.VERSION }}.zip .
         cd ..
         
-    - name: Upload release ZIP as artifact
+    - name: Upload release ZIP
       uses: actions/upload-artifact@v4
       with:
         name: attendance-bot-release
         path: attendance_bot-v${{ steps.version.outputs.VERSION }}.zip
         retention-days: 30
         
-    - name: Create GitHub Release
+    - name: Publish to GitHub Release (tagged)
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/v')
       with:
@@ -187,56 +250,49 @@ jobs:
         body: |
           ## Attendance Bot v${{ steps.version.outputs.VERSION }}
           
-          A self-contained server-side Arma 3 mod that tracks player join/leave events and sends them to your bot API.
+          Server-side Arma 3 mod for tracking player join/leave events.
           
-          ### Changes
-          - See commit history for details
+          **Includes:**
+          - 64-bit Linux extension
+          - 32-bit Linux extension
+          - PBO with SQF scripts
+          - Config examples
           
-          ### Installation
-          1. Download and extract the ZIP
-          2. Copy `@attendance_bot` to your Arma 3 server directory
-          3. Choose your architecture:
-             - 64-bit: `ln -sf attendance_bot_64.so attendance_bot.so`
-             - 32-bit: `ln -sf attendance_bot_32.so attendance_bot.so`
-          4. Configure by creating `config.hpp` or using environment variables
-          5. Launch with `-mod=@attendance_bot`
+          **Install:**
+          1. Extract ZIP
+          2. Copy `@attendance_bot` to server
+          3. Link extension: `ln -sf attendance_bot_64.so attendance_bot.so` (or _32.so)
+          4. Create `config.hpp` with your API token
+          5. Launch: `-mod=@attendance_bot`
           
-          ### Configuration
-          Create `@attendance_bot/config.hpp`:
+          **Config example:**
           ```
           apiToken = your_bot_api_token_here
           endpoint = https://your-bot-api.com/api/bot/events
-          ```
-          
-          Or use environment variables:
-          ```bash
-          export BOT_API_TOKEN=your_token
-          export BOT_API_ENDPOINT=https://your-api.com/api/bot/events
           ```
         files:
           attendance_bot-v${{ steps.version.outputs.VERSION }}.zip
         draft: false
         prerelease: false
         
-    - name: Upload to Latest Release
+    - name: Publish to Latest Release
       uses: softprops/action-gh-release@v1
       if: github.ref == 'refs/heads/main'
       with:
         tag_name: latest
-        name: Attendance Bot - Latest Build
+        name: Attendance Bot - Latest
         body: |
           ## Latest Build
           
           Automated build from main branch.
           
-          ### Installation
-          1. Download ZIP from this release
-          2. Extract to your Arma 3 server
-          3. Copy `@attendance_bot` folder
-          4. Configure and launch with `-mod=@attendance_bot`
+          **Includes:** 64-bit & 32-bit Linux extensions + PBO
           
-          ### Note
-          For stable releases, use tagged versions (v1.0.0, etc.)
+          **Install:**
+          1. Download ZIP
+          2. Copy `@attendance_bot` to server  
+          3. Link: `ln -sf attendance_bot_64.so attendance_bot.so`
+          4. Configure and launch with `-mod=@attendance_bot`
         files:
           attendance_bot-v${{ steps.version.outputs.VERSION }}.zip
         draft: false
@@ -247,3 +303,4 @@ jobs:
       run: |
         rm -rf release-package
         rm -f attendance_bot-v*.zip
+        rm -rf artifacts
