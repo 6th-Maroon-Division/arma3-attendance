@@ -19,12 +19,12 @@ jobs:
                 cmake -DCMAKE_BUILD_TYPE=Release ..
                 cmake --build . --config Release
                 cd ..
-                cp build64/attendance_bot* @attendance_bot/attendance_bot_x64.so
+                cp build64/attendance_bot* '@attendance_bot/attendance_bot_x64.so'
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
                 name: ext-64
-                path: @attendance_bot/attendance_bot_x64.so
+                path: '@attendance_bot/attendance_bot_x64.so'
                 retention-days: 1
                 
     build-32:
@@ -47,12 +47,12 @@ jobs:
                 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-m32" -DCMAKE_CXX_FLAGS="-m32" ..
                 cmake --build . --config Release
                 cd ..
-                cp build32/attendance_bot* @attendance_bot/attendance_bot.so
+                cp build32/attendance_bot* '@attendance_bot/attendance_bot.so'
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
                 name: ext-32
-                path: @attendance_bot/attendance_bot.so
+                path: '@attendance_bot/attendance_bot.so'
                 retention-days: 1
 
     build-pbo:
@@ -92,12 +92,12 @@ jobs:
                 echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
             - name: Create release structure
               run: |
-                mkdir -p release/@attendance_bot
-                cp artifacts/ext-64/attendance_bot_x64.so release/@attendance_bot/
-                cp artifacts/ext-32/attendance_bot.so release/@attendance_bot/
-                cp -r artifacts/pbo/* release/@attendance_bot/ || true
-                cp tools/config.hpp.example release/@attendance_bot/
-                cp tools/config.json.example release/@attendance_bot/
+                mkdir -p 'release/@attendance_bot'
+                cp artifacts/ext-64/attendance_bot_x64.so 'release/@attendance_bot/'
+                cp artifacts/ext-32/attendance_bot.so 'release/@attendance_bot/'
+                cp -r artifacts/pbo/* 'release/@attendance_bot/' || true
+                cp tools/config.hpp.example 'release/@attendance_bot/'
+                cp tools/config.json.example 'release/@attendance_bot/'
             - name: Upload Release
               uses: actions/upload-artifact@v4
               with:
