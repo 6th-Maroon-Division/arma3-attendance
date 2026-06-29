@@ -1,0 +1,28 @@
+{
+  "name": "Attendance Bot",
+  "prefix": "attendance_bot",
+  "mainprefix": "z",
+  "author": "6th Maroon Division",
+  "version": "1.0.0",
+  "release_type": "stable",
+  "signing": {
+    "enabled": false
+  },
+  "files": [
+    {
+      "source": "@attendance_bot",
+      "target": "@attendance_bot"
+    }
+  ],
+  "exclusions": [
+    ".git*",
+    "build*",
+    ".github*",
+    "*.md",
+    "CMakeLists.txt",
+    "include/",
+    "src/",
+    "tools/",
+    "hemtt.json"
+  ]
+}
