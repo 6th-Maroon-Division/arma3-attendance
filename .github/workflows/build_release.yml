@@ -118,19 +118,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         
-      - name: Install and run HEMTT
+      - name: Prepare PBO source files
         run: |
-          # Download and install HEMTT (direct binary)
-          wget -q -O /usr/local/bin/hemtt https://github.com/BrettMayson/HEMTT/releases/latest/download/linux-x64
-          chmod +x /usr/local/bin/hemtt
-          hemtt release
-        
-      - name: Move HEMTT output
-        run: |
-          mkdir -p pbo-output
-          if [ -d "release" ]; then
-            cp -r release pbo-output/
-          fi
+          # Copy PBO source to output directory
+          mkdir -p pbo-output/@attendance_bot/addons/attendance_bot/scripts
+          cp -r @attendance_bot/mod.cpp pbo-output/@attendance_bot/
+          cp -r @attendance_bot/logo.paa pbo-output/@attendance_bot/
+          cp -r @attendance_bot/addons/attendance_bot/* pbo-output/@attendance_bot/addons/attendance_bot/
+          cp -r @attendance_bot/keys pbo-output/@attendance_bot/
           
       - name: Upload PBO artifact
         uses: actions/upload-artifact@v4
@@ -173,14 +168,10 @@ jobs:
           cp artifacts/extension-64/${{ env.MOD_NAME }}_x64.so ${{ env.MOD_NAME }}/
           cp artifacts/extension-32/${{ env.MOD_NAME }}.so ${{ env.MOD_NAME }}/
           
-          # Copy HEMTT output (PBO)
-          if [ -d "artifacts/pbo/release" ]; then
-            cp -r artifacts/pbo/release/* ${{ env.MOD_NAME }}/
+          # Copy PBO source files (will be packed manually)
+          if [ -d "artifacts/pbo" ]; then
+            cp -r artifacts/pbo/* ${{ env.MOD_NAME }}/
           fi
-          
-          # Also copy mod.cpp and logo from source
-          cp @attendance_bot/mod.cpp ${{ env.MOD_NAME }}/
-          cp @attendance_bot/logo.paa ${{ env.MOD_NAME }}/
           
           # Copy config examples
           cp tools/config.hpp.example ${{ env.MOD_NAME }}/
