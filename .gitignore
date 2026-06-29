@@ -1,0 +1,45 @@
+# Build directories
+build*/
+build32/
+build64/
+
+# Built libraries
+*.so
+*.dll
+*.a
+*.lib
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+
+# IDE files
+.idea/
+.vs/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+*.rpt
+
+# Test outputs
+test/
+
+# Package files
+*.zip
+*.tar.gz
+*.tar.bz2
+
+# Arma 3 server files
+*.paa
+*.pac
+*.pbo
