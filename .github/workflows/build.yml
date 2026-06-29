@@ -56,19 +56,23 @@ jobs:
                 retention-days: 1
 
     build-pbo:
-        name: Build PBO
+        name: Prepare PBO files
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
-            - name: Setup HEMTT
-              uses: arma-actions/hemtt@main
-            - name: Run HEMTT build
-              run: hemtt release
+            - name: Prepare mod structure
+              run: |
+                mkdir -p pbo-output/@attendance_bot/addons/attendance_bot/scripts
+                cp @attendance_bot/mod.cpp pbo-output/@attendance_bot/
+                cp @attendance_bot/logo.paa pbo-output/@attendance_bot/
+                cp @attendance_bot/addons/attendance_bot/config.cpp pbo-output/@attendance_bot/addons/attendance_bot/
+                cp @attendance_bot/addons/attendance_bot/scripts/init.sqf pbo-output/@attendance_bot/addons/attendance_bot/scripts/
+                cp -r @attendance_bot/keys pbo-output/@attendance_bot/
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
                 name: pbo
-                path: .hemttout/release/
+                path: pbo-output/
                 retention-days: 1
 
     package:
