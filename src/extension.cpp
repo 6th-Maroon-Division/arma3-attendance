@@ -2,24 +2,28 @@
 #include "httprequest.h"
 #include "config.h"
 #include "utils.h"
+#include "queue.h"
 
 #include <cstring>
 #include <string>
 #include <vector>
 #include <memory>
+#include <cstdio>
 
 // Static members
 std::string Arma3Extension::LastError = "";
 
 // Global instances (initialized once)
 static Config g_Config;
-static std::unique_ptr<HttpRequest> g_HttpRequest = nullptr;
+static std::shared_ptr<EventQueue> g_EventQueue = nullptr;
+static std::shared_ptr<HttpRequest> g_HttpRequest = nullptr;
+static std::shared_ptr<EventProcessor> g_EventProcessor = nullptr;
 
 // ---------------------------------------------------------------------------
 // Configuration helpers
 // ---------------------------------------------------------------------------
 
-static void EnsureHttpRequest() {
+static void EnsureInfrastructure() {
     if (!g_HttpRequest) {
         // Try to load config from environment variables first
         // This is how GitHub secrets will be injected
@@ -30,11 +34,27 @@ static void EnsureHttpRequest() {
             g_Config.SetEndpoint("http://localhost:3000/api/bot/events");
         }
         
-        g_HttpRequest = std::make_unique<HttpRequest>(
+        g_HttpRequest = std::make_shared<HttpRequest>(
             g_Config.GetApiToken(),
             g_Config.GetEndpoint()
         );
+        
+        g_EventQueue = std::make_shared<EventQueue>();
+        g_EventProcessor = std::make_shared<EventProcessor>(g_EventQueue, g_HttpRequest);
+        g_EventProcessor->Start();
     }
+}
+
+static void ShutdownInfrastructure() {
+    if (g_EventProcessor) {
+        g_EventProcessor->Stop();
+        g_EventProcessor.reset();
+    }
+    if (g_EventQueue) {
+        g_EventQueue->Stop();
+        g_EventQueue.reset();
+    }
+    g_HttpRequest.reset();
 }
 
 // ---------------------------------------------------------------------------
@@ -58,12 +78,11 @@ extern "C" {
 // ---------------------------------------------------------------------------
 
 void Arma3Extension::Initialize() {
-    // Initialize the HTTP request handler
-    EnsureHttpRequest();
+    EnsureInfrastructure();
 }
 
 void Arma3Extension::Shutdown() {
-    g_HttpRequest.reset();
+    ShutdownInfrastructure();
 }
 
 void Arma3Extension::HandleCommand(char* output, int outputSize, const char* function) {
@@ -75,7 +94,6 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     
     // Parse the function call
     // Format: "functionName arg1 arg2 arg3 ..."
-    // Arma 3 sends the function name and arguments as a single string
     std::string funcStr(function);
     std::vector<std::string> parts = Utils::SplitString(funcStr, ' ');
     
@@ -87,15 +105,24 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     
     std::string command = parts[0];
     
-    // Initialize the HTTP client if not already done
-    EnsureHttpRequest();
+    // Initialize the infrastructure if not already done
+    EnsureInfrastructure();
     
     if (command == "playerConnected") {
         // Format: playerConnected <steamId> <discordUserId>
         if (parts.size() >= 2) {
             std::string steamId = parts[1];
             std::string discordUserId = (parts.size() >= 3) ? parts[2] : "";
-            OnPlayerConnected(steamId, discordUserId);
+            
+            // Queue the event and return immediately
+            PlayerEvent event;
+            event.steamId = steamId;
+            event.discordUserId = discordUserId;
+            event.isJoin = true;
+            event.timestamp = Utils::GetCurrentUTCTime();
+            
+            g_EventQueue->Push(event);
+            
             strncpy(output, "OK", outputSize);
         } else {
             strncpy(output, "Error: playerConnected requires steamId", outputSize);
@@ -106,7 +133,16 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
         if (parts.size() >= 2) {
             std::string steamId = parts[1];
             std::string discordUserId = (parts.size() >= 3) ? parts[2] : "";
-            OnPlayerDisconnected(steamId, discordUserId);
+            
+            // Queue the event and return immediately
+            PlayerEvent event;
+            event.steamId = steamId;
+            event.discordUserId = discordUserId;
+            event.isJoin = false;
+            event.timestamp = Utils::GetCurrentUTCTime();
+            
+            g_EventQueue->Push(event);
+            
             strncpy(output, "OK", outputSize);
         } else {
             strncpy(output, "Error: playerDisconnected requires steamId", outputSize);
@@ -118,7 +154,7 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     else if (command == "setToken") {
         if (parts.size() >= 2) {
             g_Config.SetApiToken(parts[1]);
-            g_HttpRequest = std::make_unique<HttpRequest>(
+            g_HttpRequest = std::make_shared<HttpRequest>(
                 g_Config.GetApiToken(),
                 g_Config.GetEndpoint()
             );
@@ -130,13 +166,21 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     else if (command == "setEndpoint") {
         if (parts.size() >= 2) {
             g_Config.SetEndpoint(parts[1]);
-            g_HttpRequest = std::make_unique<HttpRequest>(
+            g_HttpRequest = std::make_shared<HttpRequest>(
                 g_Config.GetApiToken(),
                 g_Config.GetEndpoint()
             );
             strncpy(output, "OK", outputSize);
         } else {
             strncpy(output, "Error: setEndpoint requires URL", outputSize);
+        }
+    }
+    else if (command == "queueStatus") {
+        if (g_EventQueue) {
+            int count = g_EventQueue->Empty() ? 0 : 1; // Simple check
+            snprintf(output, outputSize, "Queue: %d events", count);
+        } else {
+            strncpy(output, "Queue not initialized", outputSize);
         }
     }
     else {
@@ -147,27 +191,31 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
 }
 
 void Arma3Extension::OnPlayerConnected(const std::string& steamId, const std::string& discordUserId) {
-    if (!g_HttpRequest) {
-        LastError = "HTTP request handler not initialized";
+    if (!g_EventQueue) {
+        LastError = "Event queue not initialized";
         return;
     }
     
-    HttpRequest::Response response = g_HttpRequest->SendPlayerEvent(steamId, discordUserId, true);
+    PlayerEvent event;
+    event.steamId = steamId;
+    event.discordUserId = discordUserId;
+    event.isJoin = true;
+    event.timestamp = Utils::GetCurrentUTCTime();
     
-    if (response.statusCode != 200 && response.statusCode != 201) {
-        LastError = "Failed to send player connected event: " + response.error;
-    }
+    g_EventQueue->Push(event);
 }
 
 void Arma3Extension::OnPlayerDisconnected(const std::string& steamId, const std::string& discordUserId) {
-    if (!g_HttpRequest) {
-        LastError = "HTTP request handler not initialized";
+    if (!g_EventQueue) {
+        LastError = "Event queue not initialized";
         return;
     }
     
-    HttpRequest::Response response = g_HttpRequest->SendPlayerEvent(steamId, discordUserId, false);
+    PlayerEvent event;
+    event.steamId = steamId;
+    event.discordUserId = discordUserId;
+    event.isJoin = false;
+    event.timestamp = Utils::GetCurrentUTCTime();
     
-    if (response.statusCode != 200 && response.statusCode != 201) {
-        LastError = "Failed to send player disconnected event: " + response.error;
-    }
+    g_EventQueue->Push(event);
 }

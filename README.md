@@ -1,14 +1,51 @@
 # Arma 3 Attendance Bot Extension
 
-A C++ extension for Arma 3 that tracks player join/leave events and sends them to a bot API endpoint.
+A C++ extension for Arma 3 that tracks player join/leave events and sends them to a bot API endpoint **asynchronously** using a queue system.
+
+## Architecture
+
+The extension uses a **queue-based architecture** for maximum reliability:
+
+```
+Arma 3 SQF Script
+    │
+    ▼ (callExtension - returns immediately)
+┌─────────────────────────────────────┐
+│      C++ Extension                   │
+│  ┌─────────────────────────────────┐│
+│  │      Event Queue (thread-safe)    ││  ← Events are queued here
+│  └─────────────────────────────────┘│
+│              │                        │
+│              ▼                        │
+│  ┌─────────────────────────────────┐│
+│  │    Worker Thread                  ││  ← Processes queue in background
+│  │  - HTTP POST to API               ││
+│  │  - Handles retries on failure     ││
+│  └─────────────────────────────────┘│
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│         Your Bot API                   │
+│  POST /api/bot/events                  │
+│  Authorization: Bearer <token>         │
+└─────────────────────────────────────┘
+```
+
+**Key Benefits:**
+- ⚡ **Non-blocking**: Arma 3 game thread is never blocked by network calls
+- 📦 **Reliable**: Events are queued and processed in the background
+- 🔄 **Scalable**: Can handle bursts of events (many players joining at once)
+- 🛡️ **Safe**: Thread-safe queue with proper synchronization
 
 ## Features
 
 - Detects when players join or leave the Arma 3 server
-- Sends HTTP POST requests to your bot API
+- Sends HTTP POST requests to your bot API **asynchronously**
 - Supports both Steam ID and Discord ID identification
-- Works on both Linux and Windows servers
+- Works on both Linux (.so) and Windows (.dll) servers
 - Built with GitHub Actions using GitHub secrets for API token
+- Thread-safe event queue with background processing
 
 ## API Endpoint
 
@@ -64,7 +101,7 @@ To trigger a build:
    ├── addons/
    │   └── attendance_bot/
    │       ├── config.cpp
-   │       └── attendance_bot_64.so  # or attendance_bot_32.so
+   │       └── attendance_bot.so  # (or _64.so / _32.so)
    └── meta.cpp
    ```
 
@@ -117,31 +154,28 @@ class CfgFunctions
 };
 ```
 
-## Architecture
+## Extension Commands
 
-```
-Arma 3 Server
-    │
-    ▼
-┌─────────────────────────────────────┐
-│         SQF Scripts                   │  ← Detects player events
-│  (scripts/init.sqf)                   │
-└─────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────┐
-│         C++ Extension (.so/.dll)      │  ← Built by GitHub Actions
-│  - RVExtension() entry point           │
-│  - HTTP POST to API                   │
-│  - Loads BOT_API_TOKEN from env       │
-└─────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────┐
-│         Your Bot API                   │
-│  POST /api/bot/events                  │
-│  Authorization: Bearer <token>         │
-└─────────────────────────────────────┘
+You can call these from SQF scripts:
+
+```sqf
+// Get extension version
+callExtension "version";  // Returns "1.0.0"
+
+// Set API token at runtime
+callExtension "setToken your_api_token_here";
+
+// Set API endpoint at runtime
+callExtension "setEndpoint https://your-api.com/api/bot/events";
+
+// Queue a player connected event (returns "OK" immediately)
+callExtension "playerConnected 76561198000000000";
+
+// Queue a player disconnected event (returns "OK" immediately)
+callExtension "playerDisconnected 76561198000000000";
+
+// Check queue status
+callExtension "queueStatus";  // Returns "Queue: X events"
 ```
 
 ## Building Locally
@@ -158,7 +192,7 @@ cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release
 
-# Output: libattendance_bot.so
+# Output: attendance_bot.so
 ```
 
 ### Windows
@@ -175,27 +209,25 @@ cmake --build . --config Release
 
 ## Testing
 
-You can test the extension manually:
+The extension processes events **asynchronously**, so you won't see immediate HTTP calls:
 
 ```sqf
-// In Arma 3 debug console or SQF script
-callExtension "version";  // Should return "1.0.0"
+// This returns "OK" immediately - the HTTP request happens in background
+_result = callExtension "playerConnected 76561198000000000";
+// _result will be "OK" right away
 
-// Set configuration
-callExtension "setToken your_test_token";
-callExtension "setEndpoint http://localhost:3000/api/bot/events";
-
-// Simulate player events
-callExtension "playerConnected 76561198000000000 ";
-callExtension "playerDisconnected 76561198000000000 ";
+// You can check the queue status
+callExtension "queueStatus";
 ```
+
+To verify events are being sent, check your API server logs or the Arma 3 server console output (errors are logged to stderr).
 
 ## Troubleshooting
 
 ### Extension not loading
 - Ensure the .so/.dll file is in the correct location
 - Check that the file architecture matches your Arma 3 server (32-bit vs 64-bit)
-- Verify file permissions on Linux: `chmod 644 attendance_bot_64.so`
+- Verify file permissions on Linux: `chmod 644 attendance_bot.so`
 
 ### API calls failing
 - Check that `BOT_API_TOKEN` environment variable is set
@@ -208,42 +240,73 @@ callExtension "playerDisconnected 76561198000000000 ";
     -d '{"steamId":"76561198000000000","isJoin":true,"timestamp":"2024-01-15T12:30:00Z"}'
   ```
 
-### Events not being sent
+### Events not being queued
 - Check that the SQF event handlers are registered correctly
 - Ensure `addMissionEventHandler` is called after the extension loads
 - Look for errors in the Arma 3 server RPT log file
+
+### Thread-related issues
+- The extension spawns a background thread on first use
+- Make sure your system has pthread support (it should on any modern Linux)
+- On Windows, ensure you're using a recent compiler with C++17 support
 
 ## Directory Structure
 
 ```
 arma3-attendance/
-├── @attendance_bot/           # Arma 3 mod folder
+├── @attendance_bot/                      # Arma 3 mod folder
 │   ├── addons/
 │   │   └── attendance_bot/
-│   │       ├── config.cpp     # Arma 3 config
-│   │       └── *.so/*.dll      # Built extension
-│   └── meta.cpp               # Mod metadata
+│   │       ├── config.cpp               # Arma 3 extension declaration
+│   │       └── attendance_bot.so          # Built extension (Linux)
+│   └── meta.cpp                          # Mod metadata
 ├── .github/
 │   └── workflows/
-│       └── build.yml          # GitHub Actions workflow
-├── include/                   # C++ headers
+│       └── build.yml                     # GitHub Actions workflow
+├── include/                              # C++ headers
 │   ├── extension.h
 │   ├── httprequest.h
 │   ├── config.h
-│   └── utils.h
-├── scripts/                   # SQF scripts
-│   ├── init.sqf
+│   ├── utils.h
+│   └── queue.h                           # Queue system
+├── scripts/                              # SQF scripts
 │   ├── config.sqf
-│   └── description.ext
-├── src/                       # C++ sources
+│   ├── fn_init.sqf
+│   └── init.sqf
+├── src/                                 # C++ sources
 │   ├── extension.cpp
 │   ├── httprequest.cpp
 │   ├── config.cpp
-│   └── utils.cpp
-├── CMakeLists.txt
+│   ├── utils.cpp
+│   └── queue.cpp                         # Queue implementation
+├── CMakeLists.txt                        # CMake build configuration
 ├── README.md
 └── .gitignore
 ```
+
+## Implementation Details
+
+### Queue System
+
+The extension uses a producer-consumer pattern:
+
+1. **Producer** (Main thread / Arma 3 game thread):
+   - Receives events from SQF via `callExtension`
+   - Pushes events to thread-safe queue
+   - Returns "OK" immediately
+
+2. **Consumer** (Worker thread):
+   - Waits for events on the queue
+   - Processes each event by sending HTTP POST
+   - Handles errors and could implement retry logic
+   - Runs independently of the game thread
+
+### Thread Safety
+
+- All queue operations are protected by mutex
+- Condition variables are used for efficient waiting
+- Atomic flags for thread control
+- Proper cleanup on extension unload
 
 ## License
 
