@@ -58,8 +58,6 @@ jobs:
     package:
         name: Package
         needs: [build-64, build-32]
-        name: Package
-        needs: [build-64, build-32, build-pbo]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
