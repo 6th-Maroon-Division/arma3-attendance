@@ -32,15 +32,24 @@ add_library(attendance_bot SHARED ${SOURCES})
 # Link libraries
 target_link_libraries(attendance_bot PRIVATE Threads::Threads ${CURL_LIBRARIES})
 
-# Set output name
+# Set output name without lib prefix on Linux
 set_target_properties(attendance_bot PROPERTIES
     OUTPUT_NAME "attendance_bot"
+    PREFIX ""
+    SUFFIX ".so"
 )
 
 # Enable position-independent code (required for shared libraries on Linux)
 set_target_properties(attendance_bot PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
+
+# For Windows, set different suffix
+if(WIN32)
+    set_target_properties(attendance_bot PROPERTIES
+        SUFFIX ".dll"
+    )
+endif()
 
 # Export compile commands for debugging
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

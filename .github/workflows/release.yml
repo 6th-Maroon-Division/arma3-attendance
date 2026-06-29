@@ -42,21 +42,30 @@ jobs:
           
     - name: Build extension
       run: |
-        mkdir -p build
-        cd build
+        mkdir -p build64
+        cd build64
         cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ..
         cmake --build . --config ${{ env.BUILD_TYPE }} --target ${{ env.MOD_NAME }}
         cd ..
         
-    - name: Rename output
+    - name: Find and rename output (64-bit)
       run: |
-        mv build/${{ env.MOD_NAME }}.so build/${{ env.MOD_NAME }}_64.so
+        # Find the .so file (might be libattendance_bot.so or attendance_bot.so)
+        if [ -f "build64/libattendance_bot.so" ]; then
+          mv build64/libattendance_bot.so build64/${{ env.MOD_NAME }}_64.so
+        elif [ -f "build64/attendance_bot.so" ]; then
+          mv build64/attendance_bot.so build64/${{ env.MOD_NAME }}_64.so
+        else
+          echo "ERROR: Could not find .so file in build64/"
+          ls -la build64/
+          exit 1
+        fi
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: attendance-bot-linux-64
-        path: build/${{ env.MOD_NAME }}_64.so
+        path: build64/${{ env.MOD_NAME }}_64.so
         retention-days: 7
 
   # ============================================================================
@@ -83,8 +92,8 @@ jobs:
           
     - name: Build extension (32-bit)
       run: |
-        mkdir -p build
-        cd build
+        mkdir -p build32
+        cd build32
         cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
           -DCMAKE_C_FLAGS="-m32" \
           -DCMAKE_CXX_FLAGS="-m32" \
@@ -92,53 +101,25 @@ jobs:
         cmake --build . --config ${{ env.BUILD_TYPE }} --target ${{ env.MOD_NAME }}
         cd ..
         
-    - name: Rename output
+    - name: Find and rename output (32-bit)
       run: |
-        mv build/${{ env.MOD_NAME }}.so build/${{ env.MOD_NAME }}_32.so
+        # Find the .so file
+        if [ -f "build32/libattendance_bot.so" ]; then
+          mv build32/libattendance_bot.so build32/${{ env.MOD_NAME }}_32.so
+        elif [ -f "build32/attendance_bot.so" ]; then
+          mv build32/attendance_bot.so build32/${{ env.MOD_NAME }}_32.so
+        else
+          echo "ERROR: Could not find .so file in build32/"
+          ls -la build32/
+          exit 1
+        fi
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: attendance-bot-linux-32
-        path: build/${{ env.MOD_NAME }}_32.so
+        path: build32/${{ env.MOD_NAME }}_32.so
         retention-days: 7
-
-  # ============================================================================
-  # Windows build (optional - comment out if not needed)
-  # ============================================================================
-  # build-windows:
-  #   name: Build Windows
-  #   runs-on: windows-latest
-  #   
-  #   steps:
-  #   - name: Checkout repository
-  #     uses: actions/checkout@v4
-  #     
-  #   - name: Install dependencies
-  #     run: |
-  #       vcpkg install curl:x64-windows
-  #       
-  #   - name: Configure CMake
-  #     run: |
-  #       mkdir build
-  #       cd build
-  #       cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ..
-  #       
-  #   - name: Build extension
-  #     run: |
-  #       cd build
-  #       cmake --build . --config ${{ env.BUILD_TYPE }} --target ${{ env.MOD_NAME }}
-  #       
-  #   - name: Rename output
-  #     run: |
-  #       mv build/${{ env.BUILD_TYPE }}/${{ env.MOD_NAME }}.dll ${{ env.MOD_NAME }}.dll
-  #       
-  #   - name: Upload artifact
-  #     uses: actions/upload-artifact@v4
-  #     with:
-  #       name: attendance-bot-windows
-  #       path: ${{ env.MOD_NAME }}.dll
-  #       retention-days: 7
 
   # ============================================================================
   # Release packaging
@@ -177,13 +158,18 @@ jobs:
         mkdir -p ${{ env.MOD_NAME }}/addons
         
         # Copy 64-bit extension
-        cp artifacts/attendance-bot-linux-64/${{ env.MOD_NAME }}_64.so ${{ env.MOD_NAME }}/attendance_bot_64.so
+        if [ -f "artifacts/attendance-bot-linux-64/${{ env.MOD_NAME }}_64.so" ]; then
+          cp artifacts/attendance-bot-linux-64/${{ env.MOD_NAME }}_64.so ${{ env.MOD_NAME }}/attendance_bot_64.so
+        else
+          echo "ERROR: 64-bit extension not found"
+          exit 1
+        fi
         
         # Copy 32-bit extension if available
         if [ -f "artifacts/attendance-bot-linux-32/${{ env.MOD_NAME }}_32.so" ]; then
           cp artifacts/attendance-bot-linux-32/${{ env.MOD_NAME }}_32.so ${{ env.MOD_NAME }}/attendance_bot_32.so
         else
-          echo "32-bit extension not available"
+          echo "WARNING: 32-bit extension not available"
         fi
         
         # Copy PBO source files
@@ -214,12 +200,16 @@ jobs:
     - name: Pack PBO
       run: |
         cd ${{ env.MOD_NAME }}/addons
-        rapid-pbo pack ${{ env.PBO_NAME }}.pbo ${{ env.PBO_NAME }}
-        cd ../..
-        
-        # Clean up source folder
-        if [ -f "${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}.pbo" ]; then
-          rm -rf "${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}"
+        if [ -d "${{ env.PBO_NAME }}" ]; then
+          rapid-pbo pack ${{ env.PBO_NAME }}.pbo ${{ env.PBO_NAME }}
+          cd ../..
+          
+          # Clean up source folder
+          if [ -f "${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}.pbo" ]; then
+            rm -rf "${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}"
+          fi
+        else
+          echo "WARNING: PBO source directory not found"
         fi
         
     - name: Create default symlink
