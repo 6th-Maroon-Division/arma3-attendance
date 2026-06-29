@@ -5,7 +5,7 @@ on: [push]
 jobs:
   build-64:
     name: Build 64-bit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -30,7 +30,7 @@ jobs:
 
   build-32:
     name: Build 32-bit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - name: Install 32-bit dependencies
@@ -59,7 +59,7 @@ jobs:
 
   build-pbo:
     name: Pack PBO
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - name: Install Mikero dependencies
@@ -83,7 +83,7 @@ jobs:
   package:
     name: Package Release
     needs: [build-64, build-32, build-pbo]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - name: Download artifacts
@@ -96,9 +96,10 @@ jobs:
           cp -r @attendance_bot/* release/@attendance_bot/
           rm -rf release/@attendance_bot/addons
           mkdir -p release/@attendance_bot/addons
-          cp artifacts/pbo/attendance_bot.pbo release/@attendance_bot/addons/
+          cp @attendance_bot/addons/attendance_bot/* release/@attendance_bot/addons/attendance_bot/
           cp artifacts/ext-64/attendance_bot_x64.so release/@attendance_bot/
           cp artifacts/ext-32/attendance_bot.so release/@attendance_bot/
+          cp artifacts/pbo/attendance_bot.pbo release/@attendance_bot/addons/
           cp tools/config.hpp.example release/@attendance_bot/
           cp tools/config.json.example release/@attendance_bot/
       - name: Create ZIP
