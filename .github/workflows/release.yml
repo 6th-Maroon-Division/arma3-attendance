@@ -37,8 +37,15 @@ jobs:
           cmake \
           libcurl4-openssl-dev \
           gcc-multilib \
-          g++-multilib \
-          libcurl4-openssl-dev:i386
+          g++-multilib
+        
+        # Enable multiarch for 32-bit builds
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo apt-get install -y \
+          libcurl4-openssl-dev:i386 \
+          gcc-i686-linux-gnu \
+          g++-i686-linux-gnu
           
     - name: Build 64-bit extension
       run: |
@@ -52,7 +59,12 @@ jobs:
       run: |
         mkdir -p build32
         cd build32
-        cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32 ..
+        cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DCMAKE_C_COMPILER=i686-linux-gnu-gcc \
+          -DCMAKE_CXX_COMPILER=i686-linux-gnu-g++ \
+          -DCMAKE_C_FLAGS="-m32" \
+          -DCMAKE_CXX_FLAGS="-m32" \
+          ..
         cmake --build . --config ${{ env.BUILD_TYPE }} --target ${{ env.MOD_NAME }}
         cd ..
         
@@ -65,7 +77,7 @@ jobs:
         cp build64/${{ env.MOD_NAME }}.so ${{ env.MOD_NAME }}/attendance_bot_64.so
         cp build32/${{ env.MOD_NAME }}.so ${{ env.MOD_NAME }}/attendance_bot_32.so
         
-        # Create PBO contents
+        # Create PBO source directory
         mkdir -p ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/scripts
         cp @attendance_bot/addons/attendance_bot/config.cpp ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/
         cp @attendance_bot/addons/attendance_bot/scripts/init.sqf ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}/scripts/
@@ -100,7 +112,6 @@ jobs:
     
     permissions:
       contents: write
-      packages: write
       
     steps:
     - name: Download build artifacts
@@ -119,11 +130,14 @@ jobs:
         fi
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         
-    - name: Create PBO (using rapid pbo tool)
+    - name: Create PBO (using Eliteness repo PBO tool)
       run: |
-        # Install rapid pbo tool as fallback
-        wget -q https://github.com/ArmaLife/rapid-pbo/releases/download/v1.0.0/rapid-pbo-linux -O /usr/local/bin/rapid-pbo
-        chmod +x /usr/local/bin/rapid-pbo
+        # Install PBO packing tool
+        git clone https://github.com/ArmaLife/rapid-pbo.git /tmp/rapid-pbo
+        cd /tmp/rapid-pbo
+        make
+        sudo make install
+        cd $GITHUB_WORKSPACE
         
         # Pack PBO
         cd ${{ env.MOD_NAME }}/addons
@@ -136,7 +150,9 @@ jobs:
           # Remove the source folder, keep only PBO
           rm -rf "${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}"
         else
-          echo "WARNING: PBO creation may have failed"
+          echo "WARNING: PBO creation may have failed, trying fallback..."
+          # Fallback: just copy the source as-is (users can pack manually)
+          mv ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }} ${{ env.MOD_NAME }}/addons/${{ env.PBO_NAME }}_src
         fi
         
     - name: Create default extension symlink
@@ -171,23 +187,19 @@ jobs:
         body: |
           ## Attendance Bot v${{ steps.version.outputs.VERSION }}
           
-          A self-contained Arma 3 server mod that tracks player join/leave events and sends them to your bot API.
+          A self-contained server-side Arma 3 mod that tracks player join/leave events and sends them to your bot API.
           
-          ### Changes in this version
+          ### Changes
           - See commit history for details
           
-          ### Download
-          The release ZIP contains:
-          - Extension files (.so for Linux, .dll for Windows)
-          - PBO file with scripts
-          - Config examples
-          - Documentation
-          
           ### Installation
-          1. Extract the ZIP file
-          2. Copy `@attendance_bot` folder to your Arma 3 server
-          3. Create `config.hpp` or set environment variables
-          4. Launch server with `-mod=@attendance_bot`
+          1. Download and extract the ZIP
+          2. Copy `@attendance_bot` to your Arma 3 server directory
+          3. Choose your architecture:
+             - 64-bit: `ln -sf attendance_bot_64.so attendance_bot.so`
+             - 32-bit: `ln -sf attendance_bot_32.so attendance_bot.so`
+          4. Configure by creating `config.hpp` or using environment variables
+          5. Launch with `-mod=@attendance_bot`
           
           ### Configuration
           Create `@attendance_bot/config.hpp`:
@@ -206,7 +218,7 @@ jobs:
         draft: false
         prerelease: false
         
-    - name: Upload to Release (main branch)
+    - name: Upload to Latest Release
       uses: softprops/action-gh-release@v1
       if: github.ref == 'refs/heads/main'
       with:
@@ -215,14 +227,16 @@ jobs:
         body: |
           ## Latest Build
           
-          This is an automated build from the main branch.
-          For stable releases, please use tagged versions.
+          Automated build from main branch.
           
           ### Installation
-          1. Download the ZIP file
+          1. Download ZIP from this release
           2. Extract to your Arma 3 server
           3. Copy `@attendance_bot` folder
           4. Configure and launch with `-mod=@attendance_bot`
+          
+          ### Note
+          For stable releases, use tagged versions (v1.0.0, etc.)
         files:
           attendance_bot-v${{ steps.version.outputs.VERSION }}.zip
         draft: false
