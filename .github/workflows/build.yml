@@ -1,0 +1,55 @@
+name: Build
+
+on: [push]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              
+            - name: Install build dependencies
+              run: |
+                sudo apt-get update
+                sudo apt-get install -y \
+                  build-essential \
+                  cmake \
+                  libcurl4-openssl-dev \
+                  gcc-multilib \
+                  g++-multilib \
+                  libcurl4-openssl-dev:i386
+                
+            - name: Build 64-bit extension
+              run: |
+                mkdir -p build64
+                cd build64
+                cmake -DCMAKE_BUILD_TYPE=Release ..
+                cmake --build . --config Release
+                cd ..
+                cp build64/attendance_bot* @attendance_bot/attendance_bot_x64.so
+                
+            - name: Build 32-bit extension
+              run: |
+                mkdir -p build32
+                cd build32
+                cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-m32" -DCMAKE_CXX_FLAGS="-m32" ..
+                cmake --build . --config Release
+                cd ..
+                cp build32/attendance_bot* @attendance_bot/attendance_bot.so
+                
+            - name: Setup HEMTT
+              uses: arma-actions/hemtt@v1
+              
+            - name: Run HEMTT build
+              run: hemtt release
+              
+            - name: Rename build folder
+              run: mv .hemttout/release .hemttout/@attendance_bot
+              
+            - name: Upload Release
+              uses: actions/upload-artifact@v4
+              with:
+                  name: attendance_bot
+                  path: .hemttout/@attendance_bot
+                  include-hidden-files: true
+                  if-no-files-found: error
