@@ -74,7 +74,7 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                 name: pbo
-                path: @attendance_bot/addons/attendance_bot.pbo
+                path: '@attendance_bot/addons/attendance_bot.pbo'
                 retention-days: 1
 
     package:
