@@ -3,6 +3,11 @@ author = "6th Maroon Division"
 prefix = "attendance_bot"
 mainprefix = "z"
 
+[version]
+major = 1
+minor = 0
+patch = 0
+
 [hemtt.release]
 archive = false
 no_wiki = true
