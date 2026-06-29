@@ -1,0 +1,11 @@
+name = "Attendance Bot"
+author = "6th Maroon Division"
+prefix = "attendance_bot"
+mainprefix = "z"
+folder = "@attendance_bot"
+
+[version]
+path = "@attendance_bot/addons/attendance_bot"
+
+[hemtt.release]
+archive = false
