@@ -55,9 +55,32 @@ jobs:
                 path: '@attendance_bot/attendance_bot.so'
                 retention-days: 1
 
+    build-pbo:
+        name: Pack PBO
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install Mikero dependencies
+              run: sudo apt-get update && sudo apt-get install -y liblzo2-2 libvorbis0a libvorbisfile3 libvorbisenc2 libogg0 libuchardet0
+            - name: Download and setup Mikero tools
+              run: |
+                wget -q -O /tmp/depbo.tgz https://mikero.bytex.digital/api/download?filename=depbo-tools-0.10.18-linux-amd64.tgz
+                mkdir -p /tmp/mikero
+                tar -xzf /tmp/depbo.tgz -C /tmp/mikero --strip-components=1
+            - name: Pack PBO
+              run: |
+                cd /tmp/mikero
+                LD_LIBRARY_PATH=./lib ./bin/makepbo attendance_bot ${{ github.workspace }}/@attendance_bot/addons/attendance_bot ${{ github.workspace }}/@attendance_bot/addons/attendance_bot.pbo
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: pbo
+                path: '@attendance_bot/addons/attendance_bot.pbo'
+                retention-days: 1
+
     package:
         name: Package
-        needs: [build-64, build-32]
+        needs: [build-64, build-32, build-pbo]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -76,14 +99,12 @@ jobs:
                 echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
             - name: Create release structure
               run: |
-                mkdir -p 'release/@attendance_bot/addons/attendance_bot/scripts'
+                mkdir -p 'release/@attendance_bot/addons'
                 cp artifacts/ext-64/attendance_bot_x64.so 'release/@attendance_bot/'
                 cp artifacts/ext-32/attendance_bot.so 'release/@attendance_bot/'
+                cp artifacts/pbo/attendance_bot.pbo 'release/@attendance_bot/addons/'
                 cp @attendance_bot/mod.cpp 'release/@attendance_bot/'
                 cp @attendance_bot/logo.paa 'release/@attendance_bot/'
-                cp @attendance_bot/addons/attendance_bot/config.cpp 'release/@attendance_bot/addons/attendance_bot/'
-                cp @attendance_bot/addons/attendance_bot/scripts/init.sqf 'release/@attendance_bot/addons/attendance_bot/scripts/'
-                cp -r @attendance_bot/keys 'release/@attendance_bot/'
                 cp tools/config.hpp.example 'release/@attendance_bot/'
                 cp tools/config.json.example 'release/@attendance_bot/'
             - name: Upload Release
