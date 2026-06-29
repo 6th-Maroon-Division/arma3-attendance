@@ -79,7 +79,7 @@ static void ReloadConfig() {
 extern "C" {
     EXPORT void RVExtensionVersion(char* output, int outputSize) {
         const char* version = "1.0.0";
-        strncpy(output, version, outputSize);
+        strncpy(output, version, outputSize - 1);
         output[outputSize - 1] = '\0';
     }
     
@@ -102,7 +102,7 @@ void Arma3Extension::Shutdown() {
 
 void Arma3Extension::HandleCommand(char* output, int outputSize, const char* function) {
     if (!function || strlen(function) == 0) {
-        strncpy(output, "Error: No function specified", outputSize);
+        strncpy(output, "Error: No function specified", outputSize - 1);
         output[outputSize - 1] = '\0';
         return;
     }
@@ -113,7 +113,7 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
     std::vector<std::string> parts = Utils::SplitString(funcStr, ' ');
     
     if (parts.empty()) {
-        strncpy(output, "Error: Invalid function call", outputSize);
+        strncpy(output, "Error: Invalid function call", outputSize - 1);
         output[outputSize - 1] = '\0';
         return;
     }
@@ -136,9 +136,9 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
             
             g_EventQueue->Push(event);
             
-            strncpy(output, "OK", outputSize);
+            strncpy(output, "OK", outputSize - 1);
         } else {
-            strncpy(output, "Error: playerConnected requires steamId", outputSize);
+            strncpy(output, "Error: playerConnected requires steamId", outputSize - 1);
         }
     }
     else if (command == "playerDisconnected") {
@@ -154,50 +154,50 @@ void Arma3Extension::HandleCommand(char* output, int outputSize, const char* fun
             
             g_EventQueue->Push(event);
             
-            strncpy(output, "OK", outputSize);
+            strncpy(output, "OK", outputSize - 1);
         } else {
-            strncpy(output, "Error: playerDisconnected requires steamId", outputSize);
+            strncpy(output, "Error: playerDisconnected requires steamId", outputSize - 1);
         }
     }
     else if (command == "version") {
-        strncpy(output, "1.0.0", outputSize);
+        strncpy(output, "1.0.0", outputSize - 1);
     }
     else if (command == "setToken") {
         if (parts.size() >= 2) {
             g_Config.SetApiToken(parts[1]);
             ReloadConfig();
-            strncpy(output, "OK", outputSize);
+            strncpy(output, "OK", outputSize - 1);
         } else {
-            strncpy(output, "Error: setToken requires token", outputSize);
+            strncpy(output, "Error: setToken requires token", outputSize - 1);
         }
     }
     else if (command == "setEndpoint") {
         if (parts.size() >= 2) {
             g_Config.SetEndpoint(parts[1]);
             ReloadConfig();
-            strncpy(output, "OK", outputSize);
+            strncpy(output, "OK", outputSize - 1);
         } else {
-            strncpy(output, "Error: setEndpoint requires URL", outputSize);
+            strncpy(output, "Error: setEndpoint requires URL", outputSize - 1);
         }
     }
     else if (command == "reloadConfig") {
         if (g_Config.Load()) {
             ReloadConfig();
-            strncpy(output, "OK - Config reloaded", outputSize);
+            strncpy(output, "OK - Config reloaded", outputSize - 1);
         } else {
-            strncpy(output, "Error: Could not reload config", outputSize);
+            strncpy(output, "Error: Could not reload config", outputSize - 1);
         }
     }
     else if (command == "queueStatus") {
         if (g_EventQueue) {
             int count = g_EventQueue->Empty() ? 0 : 1;
-            snprintf(output, outputSize, "Queue: %d events", count);
+            snprintf(output, outputSize - 1, "Queue: %d events", count);
         } else {
-            strncpy(output, "Queue not initialized", outputSize);
+            strncpy(output, "Queue not initialized", outputSize - 1);
         }
     }
     else {
-        strncpy(output, ("Error: Unknown command: " + command).c_str(), outputSize);
+        strncpy(output, ("Error: Unknown command: " + command).c_str(), outputSize - 1);
     }
     
     output[outputSize - 1] = '\0';
