@@ -3,11 +3,14 @@ build*/
 build32/
 build64/
 
-# Built libraries
+# Built extension files (in mod directory)
 *.so
 *.dll
 *.a
 *.lib
+
+# PBO files
+*.pbo
 
 # CMake files
 CMakeCache.txt
@@ -31,15 +34,10 @@ Thumbs.db
 *.log
 *.rpt
 
-# Test outputs
-test/
+# Release packages
+release/
+release-package/
 
-# Package files
-*.zip
-*.tar.gz
-*.tar.bz2
-
-# Arma 3 server files
-*.paa
-*.pac
-*.pbo
+# Temp directories
+*.tmp
+*.temp

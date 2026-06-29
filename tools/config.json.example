@@ -1,0 +1,4 @@
+{
+    "apiToken": "your_bot_api_token_here",
+    "endpoint": "https://your-bot-api.com/api/bot/events"
+}

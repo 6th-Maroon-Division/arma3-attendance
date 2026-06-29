@@ -1,43 +1,68 @@
-# Arma 3 Attendance Bot Extension
+# Arma 3 Attendance Bot - Server Side Mod
 
-**A self-contained mod that automatically tracks player join/leave events using Steam ID and sends them to your bot API - NO MISSION CHANGES REQUIRED!**
+**A self-contained server-side mod that automatically tracks player join/leave events using Steam ID and sends them to your bot API. NO MISSION CHANGES REQUIRED!**
 
 ## 🎯 Key Features
 
-✅ **Self-contained** - No mission changes required  
+✅ **Server-side only** - No client files, no mission changes needed  
+✅ **Self-contained** - Just install the mod, it works automatically  
 ✅ **Steam ID tracking** - Uses `getPlayerUID` for player identification  
-✅ **Config file support** - INI-style or JSON configuration  
-✅ **Environment variables fallback** - Still supports env vars for compatibility  
-✅ **Async queue** - Non-blocking HTTP requests  
-✅ **Thread-safe** - Proper synchronization  
-✅ **Cross-platform** - Linux (.so) and Windows (.dll)  
-✅ **GitHub Actions** - Automatic builds with secrets  
+✅ **Config file support** - INI-style (`config.hpp`) or JSON (`config.json`)  
+✅ **Environment variables fallback** - Supports env vars for compatibility  
+✅ **Async queue** - Non-blocking HTTP requests with background processing  
+✅ **Thread-safe** - Proper mutex/condition variable synchronization  
+✅ **GitHub Releases** - Automated builds published to GitHub Releases  
+
+## 📁 Mod Structure
+
+```
+@attendance_bot/                    # ← Copy this folder to your Arma 3 server
+├── attendance_bot.so/.dll          # ← C++ extension (in mod root)
+├── mod.cpp                        # Mod metadata
+├── logo.paa                       # Mod logo (placeholder)
+├── config.hpp.example             # INI config template
+├── config.json.example            # JSON config template
+├── addons/
+│   └── attendance_bot.pbo         # ← PBO with SQF scripts
+└── keys/
+    └── readme.txt                 # For mod signing
+```
+
+**The PBO contains:**
+- `config.cpp` - Arma 3 extension declaration + CfgFunctions for auto-execution
+- `scripts/init.sqf` - SQF script that registers event handlers
 
 ## 🏗️ Architecture
 
 ```
-Arma 3 Server + Mod
+Arma 3 Server
     │
     ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    @attendance_bot Mod                           │
 │                                                                  │
-│  ┌─────────────────┐      ┌──────────────────────────────┐ │
-│  │  config.cpp      │      │  init.sqf (auto-executed)      │ │
-│  │  - Declares      │      │  - addMissionEventHandler      │ │
-│  │    extension     │──────▶│  - Registers callbacks         │ │
-│  └─────────────────┘      │    PlayerConnected              │ │
-│                         │    PlayerDisconnected            │ │
-│                         └──────────────┬─────────────────┘ │
-│                                                  │              │
-│                                                  ▼              │
-│                         ┌──────────────────────────────┐ │
-│                         │  attendance_bot.so/.dll       │ │
-│                         │  - Reads config.hpp          │ │
-│                         │  - Thread-safe Event Queue    │ │
-│                         │  - Background Worker Thread   │ │
-│                         │  - HTTP POST to API          │ │
-│                         └──────────────────────────────┘ │
+│  Extension: @attendance_bot/attendance_bot.so                │
+│       │                                                         │
+│       ▼                                                         │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │  PBO: @attendance_bot/addons/attendance_bot.pbo          │ │
+│  │  ┌─────────────────┐  ┌──────────────────────────────┐ │ │
+│  │  │  config.cpp      │  │  scripts/init.sqf            │ │ │
+│  │  │  - CfgExtensions  │──▶│  - addMissionEventHandler    │ │ │
+│  │  │  - CfgFunctions   │  │    PlayerConnected          │ │ │
+│  │  └─────────────────┘  │    PlayerDisconnected        │ │ │
+│  │                        └──────────────┬───────────────┘ │ │
+│  │                                         │                 │ │
+│  │                                         ▼                 │ │
+│  │                                callExtension "playerConnected"│ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                  │                                 │
+│                                  ▼                                 │
+│                         [Thread-safe Queue]                       │
+│                                  │                                 │
+│                                  ▼                                 │
+│                         [Worker Thread]                          │
+│                         HTTP POST to API                          │
 └─────────────────────────────────────────────────────────────┘
     │
     ▼
@@ -56,16 +81,14 @@ The extension supports **multiple configuration methods** with this priority:
 
 ### Option 1: Config File (Recommended)
 
-Create a config file in the mod directory:
-
-**INI-style (`@attendance_bot/addons/attendance_bot/config.hpp`):**
+Create `@attendance_bot/config.hpp` (INI-style):
 ```ini
 // Attendance Bot Configuration
 apiToken = your_bot_api_token_here
 endpoint = https://your-bot-api.com/api/bot/events
 ```
 
-**JSON format (`@attendance_bot/addons/attendance_bot/config.json`):**
+Or `@attendance_bot/config.json` (JSON):
 ```json
 {
     "apiToken": "your_bot_api_token_here",
@@ -73,13 +96,9 @@ endpoint = https://your-bot-api.com/api/bot/events
 }
 ```
 
-Example files are provided:
-- `config.hpp.example`
-- `config.json.example`
-
 ### Option 2: Environment Variables
 
-Set on your server:
+Set in your server startup script:
 ```bash
 export BOT_API_TOKEN="your_bot_api_token_here"
 export BOT_API_ENDPOINT="https://your-bot-api.com/api/bot/events"
@@ -87,7 +106,7 @@ export BOT_API_ENDPOINT="https://your-bot-api.com/api/bot/events"
 
 ### Supported Key Names
 
-Both methods support multiple key names:
+All these work in both config files and environment variables:
 - `apiToken`, `token`, `BOT_API_TOKEN`
 - `endpoint`, `url`, `apiUrl`, `BOT_API_ENDPOINT`
 
@@ -119,14 +138,128 @@ Sends to `POST /api/bot/events`:
 
 ## ⚡ Setup
 
-### 1. Build the Extension
+### 1. Download
 
-**GitHub Actions** will build automatically. Or build locally:
+Get the latest release from:
+- **Stable releases**: [GitHub Releases](https://github.com/your-repo/releases) (tagged versions like `v1.0.0`)
+- **Latest build**: [GitHub Releases - Latest](https://github.com/your-repo/releases/tag/latest) (from main branch)
+
+### 2. Install on Arma 3 Server
+
+```bash
+# Extract the downloaded ZIP
+unzip attendance_bot-v*.zip
+
+# Copy the mod folder to your Arma 3 server
+cp -r @attendance_bot /path/to/arma3/
+
+# For 64-bit server, use the 64-bit extension
+ln -sf @attendance_bot/attendance_bot_64.so @attendance_bot/attendance_bot.so
+
+# For 32-bit server, use the 32-bit extension
+ln -sf @attendance_bot/attendance_bot_32.so @attendance_bot/attendance_bot.so
+
+# Create config file
+cp @attendance_bot/config.hpp.example @attendance_bot/config.hpp
+# Edit config.hpp with your token and endpoint
+
+# Launch server
+./arma3server -mod=@attendance_bot ...
+```
+
+### 3. That's It!
+
+The mod automatically:
+- Loads the extension from `@attendance_bot/attendance_bot.so`
+- Executes scripts from the PBO
+- Registers event handlers
+- Starts tracking players asynchronously
+
+## 🎛️ Commands
+
+From Arma 3 debug console or SQF:
+
+```sqf
+callExtension "version";           // Get version ("1.0.0")
+callExtension "queueStatus";       // Check queue ("Queue: X events")
+callExtension "reloadConfig";      // Reload config file
+callExtension "setToken new";      // Set token at runtime
+callExtension "setEndpoint url";   // Set endpoint at runtime
+```
+
+## 🔄 Config Reloading
+
+Reload configuration without restarting:
+```sqf
+callExtension "reloadConfig";
+```
+
+## 📁 Development Structure
+
+```
+arma3-attendance/ (development repository)
+├── @attendance_bot/                    # Mod folder (copied to release)
+│   ├── mod.cpp                        # Mod metadata
+│   ├── logo.paa                       # Logo placeholder
+│   └── keys/
+│       └── readme.txt                 # Signing info
+│
+├── @attendance_bot/addons/           # PBO source (packed into .pbo)
+│   └── attendance_bot/                # PBO contents
+│       ├── config.cpp                 # Arma config + auto-execution
+│       └── scripts/
+│           └── init.sqf               # Event handlers
+│
+├── .github/
+│   └── workflows/
+│       └── release.yml               # CI/CD workflow
+│
+├── include/                          # C++ headers
+│   ├── extension.h
+│   ├── httprequest.h
+│   ├── config.h
+│   ├── configfile.h
+│   ├── queue.h
+│   └── utils.h
+│
+├── src/                             # C++ sources
+│   ├── extension.cpp
+│   ├── httprequest.cpp
+│   ├── config.cpp
+│   ├── configfile.cpp
+│   ├── utils.cpp
+│   └── queue.cpp
+│
+├── tools/                           # Helper scripts
+│   ├── pack_pbo.sh                   # Manual PBO packing
+│   ├── create_release.sh             # Manual release creation
+│   ├── config.hpp.example           # Config template
+│   └── config.json.example          # Config template
+│
+├── CMakeLists.txt                    # CMake build
+├── README.md
+└── .gitignore
+```
+
+## 🚀 Building from Source
+
+### Prerequisites
+
+**Linux:**
+```bash
+sudo apt install build-essential cmake libcurl4-openssl-dev
+```
+
+**Windows:**
+- Visual Studio 2022 with C++ support
+- CMake
+- vcpkg (for libcurl)
+
+### Build
 
 ```bash
 # Linux
-sudo apt install build-essential cmake libcurl4-openssl-dev
-mkdir build && cd build
+mkdir build64 && cd build64
 cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release
 # Output: attendance_bot.so
@@ -138,144 +271,40 @@ cmake --build . --config Release
 # Output: attendance_bot.dll
 ```
 
-### 2. Install on Arma 3 Server
+### Pack PBO
 
 ```bash
-# Copy the built extension to mod directory
-cp build/attendance_bot.so @attendance_bot/addons/attendance_bot/
+# Requires binarize tool from Arma 3 Tools
+# Or use rapid-pbo: https://github.com/ArmaLife/rapid-pbo
 
-# Option A: Create config file (recommended)
-cp @attendance_bot/addons/attendance_bot/config.hpp.example \
-   @attendance_bot/addons/attendance_bot/config.hpp
-# Edit config.hpp with your token and endpoint
+# Manual packing
+./tools/pack_pbo.sh
 
-# Option B: Use environment variables
-# (Set in your server startup script)
-
-# Launch server
-./arma3server -mod=@attendance_bot ...
+# Or manually:
+cd @attendance_bot/addons
+binarize -pack attendance_bot.pbo attendance_bot/
 ```
-
-### 3. That's It!
-
-The mod automatically:
-- Loads the extension
-- Reads config from file (or env vars)
-- Executes `init.sqf` via CfgFunctions
-- Registers event handlers
-- Starts tracking players asynchronously
-
-## 🎛️ Commands
-
-From debug console or SQF:
-
-```sqf
-callExtension "version";           // "1.0.0"
-callExtension "queueStatus";       // "Queue: X events"
-callExtension "reloadConfig";      // Reload config file without restart
-callExtension "setToken new_token"; // Set token at runtime
-callExtension "setEndpoint new_url"; // Set endpoint at runtime
-```
-
-## 🔄 Config Reloading
-
-You can reload the configuration without restarting the server:
-
-```sqf
-callExtension "reloadConfig";
-```
-
-## 📁 File Structure
-
-```
-arma3-attendance/ (development)
-├── @attendance_bot/                      # ← Copy this to Arma 3
-│   ├── addons/
-│   │   └── attendance_bot/
-│   │       ├── config.cpp               # Arma config + auto-execution
-│   │       ├── config.hpp.example        # Config file template (INI)
-│   │       ├── config.json.example       # Config file template (JSON)
-│   │       ├── init.sqf                 # Auto-registers event handlers
-│   │       └── attendance_bot.so/.dll     # Compiled extension
-│   └── keys/
-│       └── readme.txt                   # For mod signing
-├── .github/
-│   └── workflows/
-│       └── build.yml                     # CI/CD pipeline
-├── include/                              # C++ headers
-│   ├── extension.h
-│   ├── httprequest.h
-│   ├── config.h
-│   ├── configfile.h                     # Config file reader
-│   ├── utils.h
-│   └── queue.h
-├── src/                                 # C++ sources
-│   ├── extension.cpp
-│   ├── httprequest.cpp
-│   ├── config.cpp
-│   ├── configfile.cpp                   # Config file implementation
-│   ├── utils.cpp
-│   └── queue.cpp
-├── CMakeLists.txt
-├── README.md
-└── .gitignore
-```
-
-## 🚀 How It Works
-
-### Mod Loading Flow:
-
-1. **Arma 3 starts** with `-mod=@attendance_bot`
-2. **Engine loads** `config.cpp` from the mod
-3. **Engine sees** `CfgFunctions` with `preInit = 1`
-4. **Engine executes** `\@attendance_bot\addons\attendance_bot\init.sqf`
-5. **Extension loads** and reads config from file
-6. **init.sqf runs** and registers event handlers
-7. **When players join/leave**, handlers fire
-8. **Handlers call** `callExtension` to the C++ extension
-9. **C++ extension queues** events and returns "OK" immediately
-10. **Worker thread** processes queue in background, sends HTTP POST
-
-### Event Queue System:
-
-```
-SQF Handler → callExtension → [Thread-safe Queue] → Worker Thread → HTTP POST
-         ↑                                  ↓
-         └────────── "OK" (immediate) ────┘
-```
-
-### Player ID Extraction:
-
-The mod uses `getPlayerUID` which returns the player's **Steam ID** as a string (e.g., "76561198000000000"). This is the standard 64-bit Steam ID format used by Arma 3.
-
-## 🧪 Testing
-
-The mod works automatically. To verify:
-
-1. Check your API server receives events
-2. Look in Arma 3 server RPT log for any errors
-3. Test with `callExtension "queueStatus"` in debug console
-4. Try `callExtension "reloadConfig"` after changing config
 
 ## 🐛 Troubleshooting
 
-### Config not loading?
-- ✅ Check file is named `config.hpp` or `config.json`
-- ✅ Verify file is in `@attendance_bot/addons/attendance_bot/`
-- ✅ Check file permissions: `chmod 644 config.hpp`
-- ✅ Check for typos in the config file
-- ✅ Try environment variables as fallback
-
-### Mod not working?
+### PBO not loading?
 - ✅ Verify `-mod=@attendance_bot` in server startup
+- ✅ Check `@attendance_bot/addons/attendance_bot.pbo` exists
 - ✅ Check file permissions: `chmod -R 755 @attendance_bot`
-- ✅ Verify .so/.dll architecture matches server (32-bit vs 64-bit)
-- ✅ Check RPT log for extension load errors
+
+### Extension not loading?
+- ✅ Verify `attendance_bot.so` (Linux) or `attendance_bot.dll` (Windows) exists in `@attendance_bot/`
+- ✅ Check architecture matches server (32-bit vs 64-bit)
+- ✅ Check RPT log for extension errors
+
+### Config not loading?
+- ✅ Create `@attendance_bot/config.hpp` or `config.json`
+- ✅ Check file permissions: `chmod 644 config.hpp`
+- ✅ Verify correct key names
 
 ### Events not being sent?
-- ✅ Verify token is correct in config file
-- ✅ Check endpoint URL is correct
-- ✅ Test API with curl:
+- ✅ Verify token and endpoint are correct
+- ✅ Check API with curl:
   ```bash
   curl -X POST https://your-api.com/api/bot/events \
     -H "Authorization: Bearer YOUR_TOKEN" \
@@ -283,55 +312,24 @@ The mod works automatically. To verify:
     -d '{"steamId":"76561198000000000","isJoin":true,"timestamp":"2024-01-15T12:30:00Z"}'
   ```
 
-### Thread issues?
-- Extension spawns a background thread on first use
-- Requires pthread on Linux (installed by default)
-- Errors logged to stderr (visible in server console)
+## 📄 GitHub Actions
 
-## 📄 Implementation Details
+The workflow automatically:
+1. **On push to main**: Builds and publishes to `latest` release
+2. **On tag push (v*)**: Builds and publishes to tagged release
+3. **Creates ZIP** with complete mod structure
+4. **Packs PBO** using rapid-pbo tool
 
-### Config Loading Priority
+### Triggering a Release
 
+```bash
+# Create and push a tag
+git tag v1.0.0
+git push origin v1.0.0
+
+# Or push to main (auto-publishes to latest)
+git push origin main
 ```
-1. Check for config.hpp in mod directory
-2. Check for config.json in mod directory
-3. Check for config.hpp in various standard locations
-4. Fall back to BOT_API_TOKEN environment variable
-5. Fall back to BOT_API_ENDPOINT environment variable
-```
-
-### Supported Config Keys
-
-All these key names work in both config files and environment variables:
-- `apiToken`, `token`, `BOT_API_TOKEN`
-- `endpoint`, `url`, `apiUrl`, `BOT_API_ENDPOINT`
-
-### Auto-Execution (config.cpp)
-```cpp
-class CfgFunctions
-{
-    class attendance_bot
-    {
-        class init {
-            file = "\@attendance_bot\addons\attendance_bot\init.sqf";
-            preInit = 1;  // Runs before mission starts
-            postInit = 1; // Also runs for JIP players
-        };
-    };
-};
-```
-
-### Player Tracking (init.sqf)
-```sqf
-["PlayerConnected", attendance_bot_onPlayerConnected] call addMissionEventHandler;
-["PlayerDisconnected", attendance_bot_onPlayerDisconnected] call addMissionEventHandler;
-```
-
-### Async Queue (C++)
-- Thread-safe std::queue with mutex
-- Condition variable for efficient waiting
-- Background std::thread for processing
-- Atomic flags for clean shutdown
 
 ## 📜 License
 

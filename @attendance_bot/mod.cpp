@@ -1,0 +1,11 @@
+name = "Attendance Bot";
+picture = "logo.paa";
+logo = "logo.paa";
+logoOver = "logo.paa";
+logoSmall = "logo.paa";
+tooltip = "Attendance Bot - Player Join/Leave Tracker";
+tooltipOwned = "Tracks player connections and sends to bot API";
+dlcColor[] = {0.2, 0.5, 0.8, 1};
+overview = "Automatically tracks when players join and leave the server, sending events to your bot API.";
+hideName = 0;
+hidePicture = 0;
