@@ -121,16 +121,8 @@ jobs:
       - name: Setup HEMTT
         uses: arma-actions/hemtt@v1
         
-      - name: Verify HEMTT
-        run: |
-          which hemtt || echo "HEMTT not in PATH"
-          ls -la /usr/local/bin/ | grep -i hemtt || true
-          export PATH=$PATH:/usr/local/bin
-        
       - name: Run HEMTT build
-        run: |
-          export PATH=$PATH:/usr/local/bin
-          hemtt release
+        run: hemtt release
         
       - name: Move HEMTT output
         run: |
