@@ -29,7 +29,7 @@ class CfgFunctions
     {
         class init
         {
-            file = "scripts\init.sqf";
+            file = "fn_init.sqf";
             preInit = 1;
             postInit = 1;
         };
