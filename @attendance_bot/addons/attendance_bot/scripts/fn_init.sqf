@@ -8,8 +8,8 @@
 // Wait for extension and BIS functions to be available
 waitUntil {
     !isNil "BIS_fnc_init" && 
-    (callExtension "version" != "") && 
-    (callExtension "version" != "Error: No function specified")
+    ("attendance_bot" callExtension "version" != "") && 
+    ("attendance_bot" callExtension "version" != "Error: No function specified")
 };
 
 uiSleep 0.5;
@@ -23,7 +23,7 @@ attendance_bot_call = {
         _cmd = [_cmd];
     };
     _cmd = _cmd joinString " ";
-    _result = callExtension _cmd;
+    _result = "attendance_bot" callExtension _cmd;
     _result
 };
 
